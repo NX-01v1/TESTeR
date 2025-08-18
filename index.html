@@ -14,11 +14,20 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* マグネットリンクを1行で表示するためのスタイル */
-        .single-line-link {
-            white-space: nowrap; /* テキストを強制的に1行に表示 */
-            overflow-x: auto; /* 水平スクロールを有効にする */
-            overflow-y: hidden; /* 垂直スクロールを非表示にする */
+        
+        /* デフォルトで縦並びにする */
+        .responsive-panel-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* 画面幅が768px以上の場合に横並びにする */
+        @media (min-width: 768px) {
+            .responsive-panel-container {
+                flex-direction: row;
+                gap: 2rem;
+            }
         }
     </style>
 </head>
@@ -28,7 +37,7 @@
         <p id="messageText"></p>
     </div>
 
-    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-8">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-4xl responsive-panel-container">
         <!-- ファイル共有 (シード) セクション -->
         <div class="flex-1 bg-gray-50 p-6 rounded-lg border border-gray-200">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">SEND</h2>
@@ -50,10 +59,11 @@
             <!-- 共有情報の表示 -->
             <div id="shareInfo" class="mt-4 hidden">
                 <h3 class="font-bold text-lg mb-2 text-gray-800">共有リンク:</h3>
-                <div class="bg-gray-200 p-3 rounded-md relative overflow-x-auto">
-                    <!-- マグネットリンクを1行表示に変更 -->
-                    <p id="magnetLink" class="text-sm text-gray-700 font-mono single-line-link"></p>
-                    <button id="copyButton" class="absolute top-2 right-2 bg-[#6495ed] text-white hover:bg-blue-600 text-xs px-2 py-1 rounded-md transition-colors">コピー</button>
+                <!-- マグネットリンク表示欄をRECEPTION側と同じinputタグに統一 -->
+                <div class="flex items-center space-x-2 w-full mb-4">
+                    <!-- RECEPTIONと同じスタイルを適用し、readonlyにする -->
+                    <input type="text" id="magnetLinkInput" readonly placeholder="マグネットリンク" class="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#6495ed] bg-white">
+                    <button id="copyButton" class="bg-[#6495ed] text-white font-semibold text-xs px-4 py-3 rounded-lg hover:bg-blue-600 transition-colors shadow-md min-w-[70px]">コピー</button>
                 </div>
                 <!-- QRコード表示エリア -->
                 <div class="flex justify-center mt-4">
@@ -152,7 +162,7 @@
         const seedingLoading = document.getElementById('seedingLoading');
         const preparationProgressBar = document.getElementById('preparationProgressBar');
         const shareInfo = document.getElementById('shareInfo');
-        const magnetLinkEl = document.getElementById('magnetLink');
+        const magnetLinkInput = document.getElementById('magnetLinkInput'); // 新しいID
         const copyButton = document.getElementById('copyButton');
         const seedingProgressContainer = document.getElementById('seedingProgressContainer');
         const seedingProgressBar = document.getElementById('seedingProgressBar');
@@ -362,7 +372,7 @@
             // ローディングを非表示にし、共有情報を表示
             seedingLoading.classList.add('hidden');
             shareInfo.classList.remove('hidden');
-            magnetLinkEl.textContent = torrent.magnetURI;
+            magnetLinkInput.value = torrent.magnetURI;
 
             // マグネットリンクからQRコードを生成
             QRCode.toCanvas(qrCodeCanvas, torrent.magnetURI, function (error) {
@@ -383,7 +393,7 @@
 
         // マグネットリンクをクリップボードにコピー
         copyButton.addEventListener('click', () => {
-            const textToCopy = magnetLinkEl.textContent;
+            const textToCopy = magnetLinkInput.value;
             const tempInput = document.createElement('textarea');
             tempInput.value = textToCopy;
             document.body.appendChild(tempInput);
