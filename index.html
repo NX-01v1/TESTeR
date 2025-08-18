@@ -59,12 +59,11 @@
             <!-- 共有情報の表示 -->
             <div id="shareInfo" class="mt-4 hidden">
                 <h3 class="font-bold text-lg mb-2 text-gray-800">共有リンク:</h3>
-                <!-- マグネットリンク表示欄をRECEPTION側と同じinputタグに統一 -->
-                <div class="flex items-center space-x-2 w-full mb-4">
-                    <!-- RECEPTIONと同じスタイルを適用し、readonlyにする -->
-                    <input type="text" id="magnetLinkInput" readonly placeholder="マグネットリンク" class="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#6495ed] bg-white">
-                    <button id="copyButton" class="bg-[#6495ed] text-white font-semibold text-xs px-4 py-3 rounded-lg hover:bg-blue-600 transition-colors shadow-md min-w-[70px]">コピー</button>
-                </div>
+                <!-- マグネットリンク表示欄 -->
+                <input type="text" id="magnetLinkInput" readonly placeholder="マグネットリンク" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#6495ed] bg-white mb-2">
+                <!-- コピーボタンを下に配置 -->
+                <button id="copyButton" class="w-full bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md">コピー</button>
+                
                 <!-- QRコード表示エリア -->
                 <div class="flex justify-center mt-4">
                     <canvas id="qrCodeCanvas"></canvas>
@@ -90,7 +89,7 @@
             <!-- マグネットリンク入力 -->
             <input type="text" id="magnetInput" placeholder="マグネットリンクをここに貼り付けてください..." class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#6495ed] mb-4">
             
-            <!-- ダウンロードボタンとQRスキャンボタンを2段に変更 -->
+            <!-- ダウンロードボタンとQRスキャンボタン -->
             <div class="flex flex-col space-y-2">
                 <button id="downloadButton" class="w-full bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md">
                     ダウンロード
@@ -291,9 +290,9 @@
             div.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 relative';
             div.setAttribute('data-id', item.id);
             div.innerHTML = `
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                    <span class="text-sm font-semibold text-gray-700 break-all">${item.fileName}</span>
-                    <span class="text-xs text-gray-500 mt-1 sm:mt-0">${new Date(item.downloadedAt).toLocaleString()}</span>
+                <div class="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0">
+                    <span class="text-sm font-semibold text-gray-700 break-all mr-2">${item.fileName}</span>
+                    <span class="text-xs text-gray-500">${new Date(item.downloadedAt).toLocaleString()}</span>
                 </div>
                 <div class="mt-2 flex space-x-2">
                     <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" data-magnet="${item.magnetURI}" data-url="${item.fileURL}" onclick="reDownload(event)">ダウンロード</a>
@@ -375,7 +374,9 @@
             magnetLinkInput.value = torrent.magnetURI;
 
             // マグネットリンクからQRコードを生成
-            QRCode.toCanvas(qrCodeCanvas, torrent.magnetURI, function (error) {
+            const panelWidth = document.getElementById('shareInfo').offsetWidth;
+            const qrSize = Math.min(panelWidth * 0.8, 300); // パネル幅の80%または最大300px
+            QRCode.toCanvas(qrCodeCanvas, torrent.magnetURI, { width: qrSize }, function (error) {
                 if (error) console.error(error);
             });
 
