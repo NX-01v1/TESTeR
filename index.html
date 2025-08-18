@@ -3,549 +3,509 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>サーバーレス ファイル共有</title>
+    <title>WebTorrent サーバーレスファイル共有</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter フォント -->
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
         }
+        /* マグネットリンクを1行で表示するためのスタイル */
+        .single-line-link {
+            white-space: nowrap; /* テキストを強制的に1行に表示 */
+            overflow-x: auto; /* 水平スクロールを有効にする */
+            overflow-y: hidden; /* 垂直スクロールを非表示にする */
+        }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl p-8">
-        <h1 class="text-3xl font-bold text-center text-slate-800 mb-6">P2P ファイル共有</h1>
-        <p class="text-center text-slate-600 mb-8">サーバーを使わずに、ブラウザ間で直接ファイルを共有できます。</p>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <!-- メッセージボックス -->
+    <div id="messageBox" class="fixed top-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-xl hidden transition-all duration-300 z-50">
+        <p id="messageText"></p>
+    </div>
 
-        <!-- メッセージボックス -->
-        <div id="message-box" class="hidden bg-blue-100 border border-blue-200 text-blue-700 p-4 rounded-lg mb-6" role="alert">
-            <p id="message-content"></p>
-        </div>
-
-        <!-- ファイルアップロードセクション -->
-        <div class="mb-8 p-6 bg-slate-50 rounded-lg border border-slate-200">
-            <h2 class="text-xl font-semibold text-slate-700 mb-4">ファイルを共有する</h2>
-            <!-- items-start を使用して左端を揃える -->
-            <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
-                <!-- ファイル選択と共有開始を統合 -->
-                <label for="fileInput" class="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">
-                    ファイルを選択
-                </label>
-                <input type="file" id="fileInput" class="hidden" />
-            </div>
-            <div id="uploadInfo" class="mt-4 hidden text-slate-600">
-                <p><strong>ファイル:</strong> <span id="fileName"></span></p>
-                <p><strong>サイズ:</strong> <span id="fileSize"></span></p>
-            </div>
-            <div id="uploadProgress" class="mt-4 hidden w-full bg-slate-200 rounded-full h-2.5">
-                <div id="uploadProgressBar" class="bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div>
-            </div>
-            <div id="shareLinkContainer" class="mt-6 hidden">
-                <label for="magnetLink" class="text-slate-700 font-medium block mb-2">共有用マグネットリンク:</label>
-                <div class="flex items-stretch gap-2">
-                    <input type="text" id="magnetLink" class="flex-grow bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" readonly />
-                    <button id="copyButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
-                        コピー
-                    </button>
-                    <!-- Web Share API ボタンの追加。常に表示する -->
-                    <button id="shareButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
-                        共有
-                    </button>
-                </div>
-                <p class="text-sm text-slate-500 mt-2">このリンクを他の人に送ってファイルを共有しましょう。</p>
-            </div>
-            <!-- QRコード表示エリア -->
-            <div id="qrCodeContainer" class="mt-6 flex justify-center hidden">
-                <!-- QRコードの余白を調整して見切れをなくす -->
-                <div id="qrCode" class="p-2 bg-white rounded-lg shadow-inner"></div>
-            </div>
-        </div>
-
-        <!-- ファイルダウンロードセクション -->
-        <div class="p-6 bg-slate-50 rounded-lg border border-slate-200">
-            <h2 class="text-xl font-semibold text-slate-700 mb-4">ファイルをダウンロードする</h2>
-            <div class="flex flex-col md:flex-row items-end gap-4">
-                <div class="flex-grow w-full">
-                    <label for="downloadMagnet" class="text-slate-700 font-medium block mb-2">マグネットリンクを貼り付けるか、QRコードをスキャン:</label>
-                    <input type="text" id="downloadMagnet" placeholder="マグネットリンクをここに貼り付け..." class="w-full bg-white border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <!-- ボタンの配置を変更 -->
-                <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                    <button id="scanQrButton" class="w-full md:w-auto bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">
-                        QRをスキャン
-                    </button>
-                    <button id="downloadButton" class="w-full md:w-auto bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">
-                        ダウンロード開始
-                    </button>
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-8">
+        <!-- ファイル共有 (シード) セクション -->
+        <div class="flex-1 bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">ファイルを共有する</h2>
+            <p class="text-sm text-gray-600 mb-4">共有したいファイルを選択してください。選択するとすぐにシードが開始されます。</p>
+            
+            <!-- ファイル選択 -->
+            <label for="fileInput" class="block bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors cursor-pointer text-center shadow-md">
+                ファイルを選択
+            </label>
+            <input type="file" id="fileInput" class="hidden">
+            
+            <!-- ファイル準備中のステータス表示とプログレスバー -->
+            <div id="seedingLoading" class="mt-4 p-4 bg-blue-100 border border-blue-300 rounded-lg text-blue-800 hidden">
+                <p>ファイルを準備中です...</p>
+                <div class="w-full bg-blue-200 rounded-full h-2.5 mt-2">
+                    <div id="preparationProgressBar" class="bg-[#6495ed] h-2.5 rounded-full" style="width: 0%"></div>
                 </div>
             </div>
-            <!-- QRコードスキャンエリア -->
-            <div id="reader" class="mt-6 hidden"></div>
-            <div id="downloadProgress" class="mt-4 hidden w-full bg-slate-200 rounded-full h-2.5">
-                <div id="downloadProgressBar" class="bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div>
+
+            <!-- 共有情報の表示 -->
+            <div id="shareInfo" class="mt-4 hidden">
+                <h3 class="font-bold text-lg mb-2 text-gray-800">共有リンク:</h3>
+                <div class="bg-gray-200 p-3 rounded-md relative overflow-x-auto">
+                    <!-- マグネットリンクを1行表示に変更 -->
+                    <p id="magnetLink" class="text-sm text-gray-700 font-mono single-line-link"></p>
+                    <button id="copyButton" class="absolute top-2 right-2 bg-[#6495ed] text-white hover:bg-blue-600 text-xs px-2 py-1 rounded-md transition-colors">コピー</button>
+                </div>
+                <!-- QRコード表示エリア -->
+                <div class="flex justify-center mt-4">
+                    <canvas id="qrCodeCanvas"></canvas>
+                </div>
+                <div class="mt-2 text-sm text-gray-600">
+                    <p>このリンクまたはQRコードを友達と共有して、ファイルをダウンロードしてもらいましょう。</p>
+                </div>
             </div>
-            <div id="downloadStatus" class="mt-4 hidden text-slate-600">
-                <p><strong>ステータス:</strong> <span id="downloadSpeed"></span></p>
-                <p><strong>進捗:</strong> <span id="downloadPercentage">0</span>%</p>
-            </div>
-            <div id="downloadedFileContainer" class="mt-6 hidden">
-                <p class="text-slate-700 mb-2">ダウンロードが完了しました！</p>
-                <a id="downloadedFileLink" class="inline-block bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-colors" download>
-                    ファイルをダウンロード
-                </a>
+
+            <!-- アップロード進捗バー -->
+            <div id="seedingProgressContainer" class="mt-4 hidden">
+                <div class="flex justify-between mb-1 text-gray-700">
+                    <span id="seedingProgressText">アップロード中: 0%</span>
+                    <span id="seedingUploadedAmount">0 KB</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="seedingProgressBar" class="bg-[#6495ed] h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
             </div>
         </div>
-        
-        <!-- ダウンロード履歴セクション -->
-        <div class="p-6 mt-8 bg-slate-50 rounded-lg border border-slate-200">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-slate-700">保存されたファイル</h2>
-                <button id="clearHistoryButton" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-lg text-xs transition-colors">
-                    一括削除
+
+        <!-- ファイル受信 (ダウンロード) セクション -->
+        <div class="flex-1 bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">ファイルを受信する</h2>
+            <p class="text-sm text-gray-600 mb-4">共有されたマグネットリンクを貼り付けるか、QRコードをスキャンしてダウンロードを開始します。</p>
+
+            <!-- マグネットリンク入力 -->
+            <input type="text" id="magnetInput" placeholder="マグネットリンクをここに貼り付けてください..." class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#6495ed] mb-4">
+            
+            <!-- ダウンロードボタンとQRスキャンボタン -->
+            <div class="flex space-x-2">
+                <button id="downloadButton" class="flex-1 bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md">
+                    ダウンロードを開始
+                </button>
+                <button id="scanQrButton" class="flex-1 bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-500 transition-colors shadow-md">
+                    QRコードをスキャン
                 </button>
             </div>
-            <ul id="downloadHistoryList" class="space-y-2">
-                <!-- 履歴アイテムがここに動的に追加されます -->
-            </ul>
-            <p id="noHistoryMessage" class="text-slate-500 mt-2 hidden">保存されたファイルがありません。</p>
-        </div>
 
-        <div class="mt-8 text-center text-sm text-slate-500">
-            <p>Powered by WebTorrent.</p>
-        </div>
-    </div>
+            <!-- QRスキャンエリア -->
+            <div id="qr-reader-container" class="mt-4 hidden relative">
+                <div id="reader" class="w-full max-w-xs mx-auto"></div>
+                <button id="cancelScanButton" class="mt-4 w-full bg-red-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors">
+                    スキャンをキャンセル
+                </button>
+            </div>
+            
+            <div id="downloadStatus" class="mt-4 p-4 bg-blue-100 border border-blue-300 rounded-lg text-blue-800 hidden">
+                <p>ダウンロードが開始されました... 📥</p>
+            </div>
 
-    <!-- カスタム確認モーダル -->
-    <div id="confirmationModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 shadow-lg w-full max-w-sm">
-            <p id="modalMessage" class="text-center text-slate-700 mb-6"></p>
-            <div class="flex justify-center gap-4">
-                <button id="modalConfirmBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">はい</button>
-                <button id="modalCancelBtn" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-4 rounded-lg transition-colors">いいえ</button>
+            <!-- ダウンロード進捗バーとダウンロードリンク -->
+            <div id="downloadProgressContainer" class="mt-4 hidden">
+                <div class="flex justify-between mb-1 text-gray-700">
+                    <span id="downloadProgressText">ダウンロード中: 0%</span>
+                    <span id="downloadDownloadedAmount">0 KB</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="downloadProgressBar" class="bg-[#6495ed] h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div id="downloadComplete" class="mt-4 hidden">
+                <p class="text-green-600 font-semibold text-lg mb-2">ダウンロード完了！🎉</p>
+                <a id="downloadLink" href="#" download class="bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md block text-center">
+                    ダウンロードしたファイルを開く
+                </a>
+            </div>
+
+            <!-- ダウンロード履歴セクション -->
+            <div class="mt-8 pt-4 border-t border-gray-200">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">ダウンロード履歴</h3>
+                <button id="clearHistoryButton" class="bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md hover:bg-blue-600 transition-colors mb-4 hidden">履歴をすべて削除</button>
+                <div id="downloadHistory" class="space-y-4">
+                    <!-- ダウンロードされたアイテムがここに動的に追加される -->
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- WebTorrent CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-    <!-- QRコード生成ライブラリ -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <!-- QRコードリーダーライブラリ -->
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.4/html5-qrcode.min.js"></script>
+    
+    <!-- QRコードリーダーとジェネレーターのライブラリ CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@1.1.4/webtorrent.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
 
     <script>
-        // UI要素の取得
-        const fileInput = document.getElementById('fileInput');
-        const uploadInfo = document.getElementById('uploadInfo');
-        const fileNameSpan = document.getElementById('fileName');
-        const fileSizeSpan = document.getElementById('fileSize');
-        const uploadProgressContainer = document.getElementById('uploadProgress');
-        const uploadProgressBar = document.getElementById('uploadProgressBar');
-        const shareLinkContainer = document.getElementById('shareLinkContainer');
-        const magnetLinkInput = document.getElementById('magnetLink');
-        const copyButton = document.getElementById('copyButton');
-        const shareButton = document.getElementById('shareButton');
-        const qrCodeContainer = document.getElementById('qrCodeContainer');
-        const qrCodeDiv = document.getElementById('qrCode');
-
-        const downloadMagnetInput = document.getElementById('downloadMagnet');
-        const downloadButton = document.getElementById('downloadButton');
-        const scanQrButton = document.getElementById('scanQrButton');
-        const downloadProgressContainer = document.getElementById('downloadProgress');
-        const downloadProgressBar = document.getElementById('downloadProgressBar');
-        const downloadStatus = document.getElementById('downloadStatus');
-        const downloadSpeedSpan = document.getElementById('downloadSpeed');
-        const downloadPercentageSpan = document.getElementById('downloadPercentage');
-        const downloadedFileContainer = document.getElementById('downloadedFileContainer');
-        const downloadedFileLink = document.getElementById('downloadedFileLink');
-        const readerDiv = document.getElementById('reader');
-        const downloadHistoryList = document.getElementById('downloadHistoryList');
-        const noHistoryMessage = document.getElementById('noHistoryMessage');
-        const clearHistoryButton = document.getElementById('clearHistoryButton');
-
-        const messageBox = document.getElementById('message-box');
-        const messageContent = document.getElementById('message-content');
-
-        // カスタムモーダルの要素
-        const confirmationModal = document.getElementById('confirmationModal');
-        const modalMessage = document.getElementById('modalMessage');
-        const modalConfirmBtn = document.getElementById('modalConfirmBtn');
-        const modalCancelBtn = document.getElementById('modalCancelBtn');
-
-        const DB_NAME = 'webtorrent-files-db';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'files';
-        let db;
-
-        // WebTorrentクライアントを初期化
+        // WebTorrent クライアントを初期化
         const client = new WebTorrent();
 
-        // IndexedDBを初期化する
-        function initDb() {
+        // IndexedDB の設定
+        const dbName = 'WebTorrentHistoryDB';
+        const storeName = 'downloadHistory';
+        let db;
+
+        // DOM要素のキャッシュ
+        const downloadHistoryContainer = document.getElementById('downloadHistory');
+        const clearHistoryButton = document.getElementById('clearHistoryButton');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        
+        // ファイル共有 (シード) のための DOM 要素を取得
+        const fileInput = document.getElementById('fileInput');
+        const seedingLoading = document.getElementById('seedingLoading');
+        const preparationProgressBar = document.getElementById('preparationProgressBar');
+        const shareInfo = document.getElementById('shareInfo');
+        const magnetLinkEl = document.getElementById('magnetLink');
+        const copyButton = document.getElementById('copyButton');
+        const seedingProgressContainer = document.getElementById('seedingProgressContainer');
+        const seedingProgressBar = document.getElementById('seedingProgressBar');
+        const seedingProgressText = document.getElementById('seedingProgressText');
+        const seedingUploadedAmount = document.getElementById('seedingUploadedAmount');
+        const qrCodeCanvas = document.getElementById('qrCodeCanvas');
+        
+        // ファイル受信 (ダウンロード) のための DOM 要素を取得
+        const magnetInput = document.getElementById('magnetInput');
+        const downloadButton = document.getElementById('downloadButton');
+        const scanQrButton = document.getElementById('scanQrButton');
+        const downloadStatus = document.getElementById('downloadStatus');
+        const downloadProgressContainer = document.getElementById('downloadProgressContainer');
+        const downloadProgressBar = document.getElementById('downloadProgressBar');
+        const downloadProgressText = document.getElementById('downloadProgressText');
+        const downloadDownloadedAmount = document.getElementById('downloadDownloadedAmount');
+        const downloadComplete = document.getElementById('downloadComplete');
+        const downloadLink = document.getElementById('downloadLink');
+
+        // QRスキャナー関連のDOM要素
+        const qrReaderContainer = document.getElementById('qr-reader-container');
+        const cancelScanButton = document.getElementById('cancelScanButton');
+
+        // IndexedDBを初期化し、履歴を読み込む
+        const initDB = () => {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                
-                request.onerror = (event) => {
-                    console.error("IndexedDBエラー:", event.target.error);
-                    reject('IndexedDBを開けませんでした。');
-                };
+                const request = indexedDB.open(dbName, 1);
 
                 request.onupgradeneeded = (event) => {
                     db = event.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME, { keyPath: 'magnetURI' });
-                    }
+                    db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
                 };
 
                 request.onsuccess = (event) => {
                     db = event.target.result;
-                    console.log("IndexedDBが正常に開かれました。");
+                    console.log('IndexedDB initialized.');
+                    loadHistory();
                     resolve();
                 };
+
+                request.onerror = (event) => {
+                    console.error('IndexedDB error:', event.target.error);
+                    reject(event.target.error);
+                };
             });
-        }
-        
-        // メッセージを表示する関数
-        function showMessage(message, type = 'info') {
-            messageContent.textContent = message;
-            messageBox.className = `bg-blue-100 border-blue-200 text-blue-700 p-4 rounded-lg mb-6 ${type === 'error' ? 'bg-red-100 border-red-200 text-red-700' : ''}`;
-            messageBox.classList.remove('hidden');
-        }
+        };
 
-        // IndexedDBにファイルを保存する
-        async function saveFileToDb(fileData) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.put(fileData);
-
-                request.onsuccess = () => resolve();
-                request.onerror = (event) => reject(event.target.error);
-            });
-        }
-
-        // IndexedDBから履歴を読み込み、UIに表示する
-        async function renderHistory() {
-            downloadHistoryList.innerHTML = '';
-            if (!db) {
-                noHistoryMessage.classList.remove('hidden');
-                return;
-            }
-
-            const transaction = db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.getAll();
-
-            request.onsuccess = (event) => {
-                const files = event.target.result;
-                if (files.length === 0) {
-                    noHistoryMessage.classList.remove('hidden');
-                } else {
-                    noHistoryMessage.classList.add('hidden');
-                    files.forEach(item => {
-                        const li = document.createElement('li');
-                        li.className = 'flex items-center justify-between bg-white rounded-lg p-3 shadow-sm border border-slate-200';
-                        li.innerHTML = `
-                            <div class="flex-grow">
-                                <p class="text-sm font-medium text-slate-800">${item.fileName}</p>
-                                <p class="text-xs text-slate-500">
-                                    ${(item.fileSize / 1024 / 1024).toFixed(2)} MB 
-                                    <span class="ml-2 text-blue-600 font-semibold">(ブラウザに保存済み)</span>
-                                </p>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <button class="download-local-btn bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-lg text-xs transition-colors" data-magnet="${item.magnetURI}">ファイルを保存</button>
-                                <button class="delete-local-btn bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded-lg text-xs transition-colors" data-magnet="${item.magnetURI}">削除</button>
-                            </div>
-                        `;
-                        downloadHistoryList.appendChild(li);
-                    });
-                }
-            };
-        }
-
-        // IndexedDBのすべてのファイルを削除する
-        async function clearAllFilesFromDb() {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([STORE_NAME], 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.clear();
-
-                request.onsuccess = () => resolve();
-                request.onerror = (event) => reject(event.target.error);
-            });
-        }
-
-        // カスタム確認モーダルを表示
-        function showConfirmationModal(message, onConfirm) {
-            modalMessage.textContent = message;
-            confirmationModal.classList.remove('hidden');
+        // 履歴をIndexedDBに保存する
+        const saveHistory = (fileName, magnetURI, fileURL) => {
+            const transaction = db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const item = { fileName, magnetURI, downloadedAt: new Date(), fileURL };
+            const request = store.add(item);
             
-            // 既存のリスナーを削除して重複を防止
-            const newConfirmBtn = modalConfirmBtn.cloneNode(true);
-            modalConfirmBtn.parentNode.replaceChild(newConfirmBtn, modalConfirmBtn);
-            const newCancelBtn = modalCancelBtn.cloneNode(true);
-            modalCancelBtn.parentNode.replaceChild(newCancelBtn, modalCancelBtn);
+            request.onsuccess = (event) => {
+                const id = event.target.result;
+                console.log('History saved:', { ...item, id });
+                renderHistoryItem({ ...item, id });
+                updateHistoryButtonVisibility();
+            };
+            request.onerror = (event) => {
+                console.error("Error saving history:", event.target.error);
+            };
+        };
 
-            newConfirmBtn.addEventListener('click', () => {
-                onConfirm();
-                hideConfirmationModal();
-            });
-
-            newCancelBtn.addEventListener('click', () => {
-                hideConfirmationModal();
-            });
-        }
-
-        // カスタム確認モーダルを非表示
-        function hideConfirmationModal() {
-            confirmationModal.classList.add('hidden');
-        }
-
-        // ページ読み込み時の初期化
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                await initDb();
-                renderHistory();
-            } catch (err) {
-                showMessage(err, 'error');
-            }
-        });
-
-        // 履歴のダウンロード/削除ボタンのイベントリスナー
-        downloadHistoryList.addEventListener('click', async (e) => {
-            const magnetURI = e.target.dataset.magnet;
-            if (!magnetURI) return;
-
-            if (e.target.classList.contains('download-local-btn')) {
-                // IndexedDBからファイルを取得してダウンロード
-                const transaction = db.transaction([STORE_NAME], 'readonly');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.get(magnetURI);
-                
-                request.onsuccess = (event) => {
-                    const fileData = event.target.result;
-                    if (fileData && fileData.fileBlob) {
-                        const blobUrl = URL.createObjectURL(fileData.fileBlob);
-                        const a = document.createElement('a');
-                        a.href = blobUrl;
-                        a.download = fileData.fileName;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(blobUrl);
-                        showMessage(`${fileData.fileName}をダウンロードしました。`);
-                    } else {
-                        showMessage('ファイルが見つかりません。', 'error');
-                    }
-                };
-            } else if (e.target.classList.contains('delete-local-btn')) {
-                // IndexedDBからファイルを削除
-                const transaction = db.transaction([STORE_NAME], 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.delete(magnetURI);
-
-                request.onsuccess = () => {
-                    showMessage('履歴からファイルを削除しました。');
-                    renderHistory(); // 履歴を再レンダリング
-                };
-            }
-        });
+        // 履歴を読み込んで表示する
+        const loadHistory = () => {
+            const transaction = db.transaction(storeName, 'readonly');
+            const store = transaction.objectStore(storeName);
+            const request = store.getAll();
+            request.onsuccess = (event) => {
+                const history = event.target.result;
+                downloadHistoryContainer.innerHTML = '';
+                history.reverse().forEach(item => {
+                    renderHistoryItem(item);
+                });
+                updateHistoryButtonVisibility();
+            };
+        };
         
-        // 一括削除ボタンのイベントリスナー
-        clearHistoryButton.addEventListener('click', async () => {
-            showConfirmationModal('本当にすべての保存済みファイルを削除しますか？この操作は元に戻せません。', async () => {
-                try {
-                    await clearAllFilesFromDb();
-                    showMessage('すべてのファイルが削除されました。');
-                    renderHistory();
-                } catch (error) {
-                    showMessage(`ファイルの削除に失敗しました: ${error}`, 'error');
-                }
-            });
+        // DOMから履歴項目を削除する
+        const deleteHistoryItem = (id, element) => {
+            const transaction = db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const request = store.delete(id);
+            request.onsuccess = () => {
+                element.remove();
+                showMessage('履歴アイテムが削除されました。');
+                updateHistoryButtonVisibility();
+            };
+            request.onerror = (event) => {
+                console.error("Error deleting history item:", event.target.error);
+                showMessage('履歴アイテムの削除に失敗しました。');
+            };
+        };
+        
+        // すべての履歴を削除する
+        const clearAllHistory = () => {
+            const transaction = db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const request = store.clear();
+            request.onsuccess = () => {
+                downloadHistoryContainer.innerHTML = '';
+                showMessage('すべての履歴が削除されました。');
+                updateHistoryButtonVisibility();
+            };
+            request.onerror = (event) => {
+                console.error("Error clearing history:", event.target.error);
+                showMessage('履歴のクリアに失敗しました。');
+            };
+        };
+
+        // 履歴がある場合にのみボタンを表示
+        const updateHistoryButtonVisibility = () => {
+            const historyItems = downloadHistoryContainer.querySelectorAll('[data-id]');
+            if (historyItems.length > 0) {
+                clearHistoryButton.classList.remove('hidden');
+            } else {
+                clearHistoryButton.classList.add('hidden');
+            }
+        };
+
+        // DOMに履歴項目をレンダリングする
+        const renderHistoryItem = (item) => {
+            const div = document.createElement('div');
+            div.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 relative';
+            div.setAttribute('data-id', item.id);
+            div.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="text-sm font-semibold text-gray-700">${item.fileName}</span>
+                    <span class="text-xs text-gray-500">${new Date(item.downloadedAt).toLocaleString()}</span>
+                </div>
+                <div class="mt-2 flex space-x-2">
+                    <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" data-magnet="${item.magnetURI}" data-url="${item.fileURL}" onclick="reDownload(event)">再度ダウンロード</a>
+                    <button class="flex-1 bg-gray-300 text-gray-800 text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-gray-400 transition-colors" onclick="copyMagnetLink(event)">リンクをコピー</button>
+                    <button class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold" onclick="deleteItem(event)">&times;</button>
+                </div>
+            `;
+            downloadHistoryContainer.prepend(div);
+        };
+
+        // グローバル関数として再ダウンロード機能とコピー機能、削除機能を追加
+        window.reDownload = (event) => {
+            event.preventDefault();
+            const magnetURI = event.target.dataset.magnet;
+            startDownload(magnetURI);
+        };
+
+        window.copyMagnetLink = (event) => {
+            const magnetURI = event.target.closest('div').querySelector('a').dataset.magnet;
+            const tempInput = document.createElement('textarea');
+            tempInput.value = magnetURI;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showMessage('マグネットリンクがクリップボードにコピーされました！');
+        };
+
+        window.deleteItem = (event) => {
+            const itemElement = event.target.closest('[data-id]');
+            const id = parseInt(itemElement.dataset.id, 10);
+            deleteHistoryItem(id, itemElement);
+        };
+
+        clearHistoryButton.addEventListener('click', () => {
+            clearAllHistory();
         });
 
-        // ファイルが選択されたときの処理
-        fileInput.addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (files.length === 0) {
+        // アプリケーションロード時にIndexedDBを初期化
+        window.onload = initDB;
+
+        // メッセージボックスを表示するヘルパー関数
+        function showMessage(text) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden');
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        // ヘルパー関数: バイト数を読みやすい形式に変換
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // ファイル選択時のイベントリスナー
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) {
                 return;
             }
 
-            const file = files[0];
-            fileNameSpan.textContent = file.name;
-            fileSizeSpan.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-            uploadInfo.classList.remove('hidden');
+            // ローディングステータスを表示
+            seedingLoading.classList.remove('hidden');
+            shareInfo.classList.add('hidden');
 
-            showMessage('ファイルの共有を開始しています...');
-            shareLinkContainer.classList.add('hidden');
-            qrCodeContainer.classList.add('hidden');
-            uploadProgressContainer.classList.remove('hidden');
-
-            // 選択されたファイルをシード（共有）する
-            client.seed(files, (torrent) => {
-                console.log('クライアントがtorrentをシードしています', torrent.infoHash);
-                
-                // マグネットリンクを生成して表示
-                const magnetURI = torrent.magnetURI;
-                magnetLinkInput.value = magnetURI;
-                shareLinkContainer.classList.remove('hidden');
-                
-                // QRコードを生成して表示
-                if (qrCodeDiv.firstChild) {
-                    qrCodeDiv.innerHTML = '';
+            // 準備の進捗をシミュレート
+            let preparationProgress = 0;
+            const preparationInterval = setInterval(() => {
+                if (preparationProgress < 100) {
+                    preparationProgress += 10;
+                    preparationProgressBar.style.width = `${preparationProgress}%`;
+                } else {
+                    clearInterval(preparationInterval);
                 }
-                new QRCode(qrCodeDiv, {
-                    text: magnetURI,
-                    width: 300, 
-                    height: 300, 
-                    colorDark : "#1f2937",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
-                });
-                qrCodeContainer.classList.remove('hidden');
+            }, 100);
 
-                showMessage('共有が開始されました！マグネットリンクをコピーするか、QRコードをスキャンして共有してください。');
+            // WebTorrentの準備が完了するまで待機
+            const torrent = await new Promise(resolve => {
+                client.seed(file, resolve);
+            });
+            
+            // ローディングを非表示にし、共有情報を表示
+            seedingLoading.classList.add('hidden');
+            shareInfo.classList.remove('hidden');
+            magnetLinkEl.textContent = torrent.magnetURI;
 
-                // 進行状況の更新
-                torrent.on('upload', () => {
-                    const progress = torrent.progress * 100;
-                    uploadProgressBar.style.width = progress + '%';
-                });
+            // マグネットリンクからQRコードを生成
+            QRCode.toCanvas(qrCodeCanvas, torrent.magnetURI, function (error) {
+                if (error) console.error(error);
+            });
+
+            // 進捗バーを表示
+            seedingProgressContainer.classList.remove('hidden');
+
+            // アップロードの進捗を更新
+            torrent.on('upload', () => {
+                const progress = Math.round(torrent.progress * 100);
+                seedingProgressBar.style.width = `${progress}%`;
+                seedingProgressText.textContent = `アップロード中: ${progress}%`;
+                seedingUploadedAmount.textContent = formatBytes(torrent.uploaded);
             });
         });
 
-        // コピーボタンがクリックされたときの処理
+        // マグネットリンクをクリップボードにコピー
         copyButton.addEventListener('click', () => {
-            magnetLinkInput.select();
+            const textToCopy = magnetLinkEl.textContent;
+            const tempInput = document.createElement('textarea');
+            tempInput.value = textToCopy;
+            document.body.appendChild(tempInput);
+            tempInput.select();
             document.execCommand('copy');
+            document.body.removeChild(tempInput);
             showMessage('マグネットリンクがクリップボードにコピーされました！');
         });
 
-        // Web Share API ボタンがクリックされたときの処理
-        shareButton.addEventListener('click', async () => {
-            // Web Share APIがサポートされているか確認
-            if (!navigator.share) {
-                showMessage('お使いのブラウザは共有機能をサポートしていません。', 'error');
-                return;
-            }
-
-            try {
-                const magnetURI = magnetLinkInput.value;
-                if (!magnetURI) {
-                    showMessage('共有するファイルを選択し、リンクを生成してください。', 'error');
-                    return;
-                }
-
-                await navigator.share({
-                    title: 'P2P ファイル共有',
-                    text: `P2Pでファイルを共有しました。このリンクからダウンロードできます: ${magnetURI}`,
-                    url: magnetURI
-                });
-                showMessage('マグネットリンクが共有されました！');
-            } catch(err) {
-                console.error('Web Share API Error:', err);
-                // Web Share API のキャンセルやセキュリティエラーをハンドリング
-                if (err.name === 'NotAllowedError') {
-                    // より分かりやすいエラーメッセージに変更
-                    showMessage('共有機能が許可されていません。この環境では利用できない可能性があります。', 'error');
-                } else if (err.name !== 'AbortError') {
-                    showMessage('共有に失敗しました。', 'error');
-                }
-            }
-        });
-
-        // ダウンロードボタンがクリックされたときの処理
-        downloadButton.addEventListener('click', () => {
-            const magnetURI = downloadMagnetInput.value.trim();
+        // ダウンロードを開始する関数
+        function startDownload(magnetURI) {
             if (!magnetURI) {
-                showMessage('マグネットリンクを入力してください。', 'error');
+                showMessage('マグネットリンクが有効ではありません。');
                 return;
             }
 
-            showMessage('ダウンロードを開始しています...');
-            downloadedFileContainer.classList.add('hidden');
-            downloadStatus.classList.add('hidden');
+            // ダウンロードステータスを表示
+            downloadStatus.classList.remove('hidden');
             downloadProgressContainer.classList.remove('hidden');
+            downloadComplete.classList.add('hidden');
 
-            // マグネットリンクからファイルをダウンロードする
+            // ダウンロードを開始
             client.add(magnetURI, (torrent) => {
-                console.log('クライアントがtorrentをダウンロードしています', torrent.infoHash);
-
-                // 進行状況と速度を更新
-                const updateInterval = setInterval(() => {
-                    const progress = torrent.progress * 100;
-                    downloadProgressBar.style.width = progress + '%';
-                    downloadPercentageSpan.textContent = progress.toFixed(0);
-                    downloadSpeedSpan.textContent = (torrent.downloadSpeed / 1024).toFixed(2) + ' KB/s';
-                    downloadStatus.classList.remove('hidden');
-                }, 500);
-
+                // ダウンロードの進捗を更新
+                torrent.on('download', () => {
+                    const progress = Math.round(torrent.progress * 100);
+                    downloadProgressBar.style.width = `${progress}%`;
+                    downloadProgressText.textContent = `ダウンロード中: ${progress}%`;
+                    downloadDownloadedAmount.textContent = formatBytes(torrent.downloaded);
+                });
+                
+                // ダウンロード完了
                 torrent.on('done', () => {
-                    clearInterval(updateInterval);
-                    console.log('torrentが完了しました！');
-                    showMessage('ダウンロードが完了しました！');
-                    downloadedFileContainer.classList.remove('hidden');
-
-                    // 最初のファイルをダウンロードリンクとして提供
-                    const file = torrent.files[0];
-                    if (file) {
-                        file.getBlob((err, blob) => {
-                            if (err) throw err;
-
-                            const blobUrl = URL.createObjectURL(blob);
-                            downloadedFileLink.href = blobUrl;
-                            downloadedFileLink.textContent = `ダウンロード: ${file.name}`;
-                            
-                            // ダウンロードが完了したらIndexedDBにファイルを保存
-                            const fileData = {
-                                magnetURI: magnetURI,
-                                fileName: file.name,
-                                fileSize: file.length,
-                                fileBlob: blob // BlobをIndexedDBに保存
-                            };
-
-                            saveFileToDb(fileData)
-                                .then(() => {
-                                    showMessage('ダウンロードが完了し、ファイルがブラウザに保存されました。');
-                                    renderHistory(); // 履歴を再レンダリング
-                                })
-                                .catch((err) => {
-                                    showMessage(`ファイルの保存に失敗しました: ${err}`, 'error');
-                                });
-                        });
-                    }
+                    console.log('ダウンロード完了');
+                    downloadStatus.classList.add('hidden');
                     downloadProgressContainer.classList.add('hidden');
+                    downloadComplete.classList.remove('hidden');
+
+                    // ダウンロードしたファイルを処理
+                    torrent.files.forEach(file => {
+                        console.log(file.name);
+                        file.getBlobURL((err, url) => {
+                            if (err) throw err;
+                            downloadLink.href = url;
+                            downloadLink.download = file.name;
+                            // 履歴を保存
+                            saveHistory(file.name, torrent.magnetURI, url);
+                        });
+                    });
                 });
             });
+        }
+
+        // ダウンロードボタンのイベントリスナー
+        downloadButton.addEventListener('click', () => {
+            const magnetURI = magnetInput.value.trim();
+            if (!magnetURI) {
+                showMessage('マグネットリンクを入力してください。');
+                return;
+            }
+            startDownload(magnetURI);
         });
 
-        // QRコードリーダー
-        let html5QrCode;
+        // QRコードスキャンボタンのイベントリスナー
         scanQrButton.addEventListener('click', () => {
-            showMessage('カメラを起動しています...');
-            readerDiv.classList.remove('hidden');
-            downloadMagnetInput.value = '';
-
+            qrReaderContainer.classList.remove('hidden');
             html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            
+
             html5QrCode.start({ facingMode: "environment" }, config,
                 (decodedText, decodedResult) => {
-                    downloadMagnetInput.value = decodedText;
-                    showMessage('QRコードがスキャンされました！');
+                    // QRコードが正常にスキャンされた場合
                     html5QrCode.stop().then(() => {
-                        readerDiv.classList.add('hidden');
+                        qrReaderContainer.classList.add('hidden');
+                        magnetInput.value = decodedText;
+                        startDownload(decodedText);
+                    }).catch((err) => {
+                        console.error("QRスキャナーの停止に失敗しました: " + err);
                     });
                 },
                 (errorMessage) => {
-                    // console.log(`QR Code no longer in sight, or other error: ${errorMessage}`);
-                }
-            ).catch((err) => {
-                showMessage('カメラへのアクセスに失敗しました。', 'error');
-                console.error(err);
-            });
+                    // スキャンエラー（リアルタイム）
+                })
+                .catch((err) => {
+                    showMessage("QRコードスキャナーの起動に失敗しました。カメラのアクセス許可を確認してください。");
+                    qrReaderContainer.classList.add('hidden');
+                });
+        });
+
+        // キャンセルボタンのイベントリスナー
+        cancelScanButton.addEventListener('click', () => {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    qrReaderContainer.classList.add('hidden');
+                }).catch(err => {
+                    console.error("QRスキャナーの停止に失敗しました: " + err);
+                    qrReaderContainer.classList.add('hidden');
+                });
+            } else {
+                qrReaderContainer.classList.add('hidden');
+            }
         });
     </script>
 </body>
