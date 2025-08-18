@@ -98,10 +98,6 @@
                 </button>
             </div>
             
-            <div id="downloadStatus" class="mt-4 p-4 bg-blue-100 border border-blue-300 rounded-lg text-blue-800 hidden">
-                <p>ダウンロードが開始されました... 📥</p>
-            </div>
-
             <!-- ダウンロード進捗バーとダウンロードリンク -->
             <div id="downloadProgressContainer" class="mt-4 hidden">
                 <div class="flex justify-between mb-1 text-gray-700">
@@ -168,7 +164,6 @@
         const magnetInput = document.getElementById('magnetInput');
         const downloadButton = document.getElementById('downloadButton');
         const scanQrButton = document.getElementById('scanQrButton');
-        const downloadStatus = document.getElementById('downloadStatus');
         const downloadProgressContainer = document.getElementById('downloadProgressContainer');
         const downloadProgressBar = document.getElementById('downloadProgressBar');
         const downloadProgressText = document.getElementById('downloadProgressText');
@@ -286,9 +281,9 @@
             div.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 relative';
             div.setAttribute('data-id', item.id);
             div.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <span class="text-sm font-semibold text-gray-700">${item.fileName}</span>
-                    <span class="text-xs text-gray-500">${new Date(item.downloadedAt).toLocaleString()}</span>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <span class="text-sm font-semibold text-gray-700 break-all">${item.fileName}</span>
+                    <span class="text-xs text-gray-500 mt-1 sm:mt-0">${new Date(item.downloadedAt).toLocaleString()}</span>
                 </div>
                 <div class="mt-2 flex space-x-2">
                     <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" data-magnet="${item.magnetURI}" data-url="${item.fileURL}" onclick="reDownload(event)">ダウンロード</a>
@@ -405,8 +400,7 @@
                 return;
             }
 
-            // ダウンロードステータスを表示
-            downloadStatus.classList.remove('hidden');
+            // ダウンロード進捗バーを表示
             downloadProgressContainer.classList.remove('hidden');
             downloadComplete.classList.add('hidden');
 
@@ -423,7 +417,6 @@
                 // ダウンロード完了
                 torrent.on('done', () => {
                     console.log('ダウンロード完了');
-                    downloadStatus.classList.add('hidden');
                     downloadProgressContainer.classList.add('hidden');
                     downloadComplete.classList.remove('hidden');
 
