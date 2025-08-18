@@ -116,7 +116,7 @@
             <div id="downloadComplete" class="mt-4 hidden">
                 <p id="downloadFileName" class="text-green-600 font-semibold text-lg mb-2 text-center"></p>
                 <a id="downloadLink" href="#" download class="bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md block text-center">
-                    ダウンロードしたファイルを開く
+                    ファイルを保存
                 </a>
             </div>
 
@@ -291,8 +291,7 @@
                     <span class="text-xs text-gray-500">${new Date(item.downloadedAt).toLocaleString()}</span>
                 </div>
                 <div class="mt-2 flex space-x-2">
-                    <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" data-magnet="${item.magnetURI}" data-url="${item.fileURL}" onclick="reDownload(event)">再度ダウンロード</a>
-                    <button class="flex-1 bg-gray-300 text-gray-800 text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-gray-400 transition-colors" onclick="copyMagnetLink(event)">リンクをコピー</button>
+                    <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" data-magnet="${item.magnetURI}" data-url="${item.fileURL}" onclick="reDownload(event)">ダウンロード</a>
                     <button class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold" onclick="deleteItem(event)">&times;</button>
                 </div>
             `;
@@ -304,17 +303,6 @@
             event.preventDefault();
             const magnetURI = event.target.dataset.magnet;
             startDownload(magnetURI);
-        };
-
-        window.copyMagnetLink = (event) => {
-            const magnetURI = event.target.closest('div').querySelector('a').dataset.magnet;
-            const tempInput = document.createElement('textarea');
-            tempInput.value = magnetURI;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
-            showMessage('マグネットリンクがクリップボードにコピーされました！');
         };
 
         window.deleteItem = (event) => {
