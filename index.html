@@ -31,8 +31,7 @@
     <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-8">
         <!-- ファイル共有 (シード) セクション -->
         <div class="flex-1 bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">ファイルを共有する</h2>
-            <p class="text-sm text-gray-600 mb-4">共有したいファイルを選択してください。選択するとすぐにシードが開始されます。</p>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">SEND</h2>
             
             <!-- ファイル選択 -->
             <label for="fileInput" class="block bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors cursor-pointer text-center shadow-md">
@@ -60,9 +59,6 @@
                 <div class="flex justify-center mt-4">
                     <canvas id="qrCodeCanvas"></canvas>
                 </div>
-                <div class="mt-2 text-sm text-gray-600">
-                    <p>このリンクまたはQRコードを友達と共有して、ファイルをダウンロードしてもらいましょう。</p>
-                </div>
             </div>
 
             <!-- アップロード進捗バー -->
@@ -79,18 +75,17 @@
 
         <!-- ファイル受信 (ダウンロード) セクション -->
         <div class="flex-1 bg-gray-50 p-6 rounded-lg border border-gray-200">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">ファイルを受信する</h2>
-            <p class="text-sm text-gray-600 mb-4">共有されたマグネットリンクを貼り付けるか、QRコードをスキャンしてダウンロードを開始します。</p>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">RECEPTION</h2>
 
             <!-- マグネットリンク入力 -->
             <input type="text" id="magnetInput" placeholder="マグネットリンクをここに貼り付けてください..." class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#6495ed] mb-4">
             
-            <!-- ダウンロードボタンとQRスキャンボタン -->
-            <div class="flex space-x-2">
-                <button id="downloadButton" class="flex-1 bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md">
-                    ダウンロードを開始
+            <!-- ダウンロードボタンとQRスキャンボタンを2段に変更 -->
+            <div class="flex flex-col space-y-2">
+                <button id="downloadButton" class="w-full bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md">
+                    ダウンロード
                 </button>
-                <button id="scanQrButton" class="flex-1 bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-500 transition-colors shadow-md">
+                <button id="scanQrButton" class="w-full bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-500 transition-colors shadow-md">
                     QRコードをスキャン
                 </button>
             </div>
@@ -119,7 +114,7 @@
             </div>
 
             <div id="downloadComplete" class="mt-4 hidden">
-                <p class="text-green-600 font-semibold text-lg mb-2">ダウンロード完了！🎉</p>
+                <p id="downloadFileName" class="text-green-600 font-semibold text-lg mb-2 text-center"></p>
                 <a id="downloadLink" href="#" download class="bg-[#6495ed] text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors shadow-md block text-center">
                     ダウンロードしたファイルを開く
                 </a>
@@ -179,6 +174,7 @@
         const downloadProgressText = document.getElementById('downloadProgressText');
         const downloadDownloadedAmount = document.getElementById('downloadDownloadedAmount');
         const downloadComplete = document.getElementById('downloadComplete');
+        const downloadFileNameEl = document.getElementById('downloadFileName');
         const downloadLink = document.getElementById('downloadLink');
 
         // QRスキャナー関連のDOM要素
@@ -448,6 +444,7 @@
                         console.log(file.name);
                         file.getBlobURL((err, url) => {
                             if (err) throw err;
+                            downloadFileNameEl.textContent = file.name;
                             downloadLink.href = url;
                             downloadLink.download = file.name;
                             // 履歴を保存
