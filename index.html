@@ -145,7 +145,15 @@
 
     <script>
         // WebTorrent クライアントを初期化
-        const client = new WebTorrent();
+        // ピアを見つけやすくするため、複数のトラッカーサーバーを追加
+        const client = new WebTorrent({
+            tracker: [
+                'wss://tracker.openwebtorrent.com',
+                'wss://tracker.webtorrent.io',
+                'wss://tracker.btorrent.xyz',
+                'wss://webtorrent.dracony.org'
+            ]
+        });
 
         // IndexedDB の設定
         const dbName = 'WebTorrentHistoryDB';
