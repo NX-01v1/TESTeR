@@ -113,9 +113,10 @@
                     <span id="downloadProgressText">ダウンロード中: 0%</span>
                     <span id="downloadDownloadedAmount">0 KB</span>
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
                     <div id="downloadProgressBar" class="bg-[#6495ed] h-2.5 rounded-full" style="width: 0%"></div>
                 </div>
+                <p id="downloadTimeRemaining" class="text-xs text-gray-500 text-right"></p>
             </div>
 
             <div id="downloadComplete" class="mt-4 hidden">
@@ -161,7 +162,7 @@
         const seedingLoading = document.getElementById('seedingLoading');
         const preparationProgressBar = document.getElementById('preparationProgressBar');
         const shareInfo = document.getElementById('shareInfo');
-        const magnetLinkInput = document.getElementById('magnetLinkInput'); // 新しいID
+        const magnetLinkInput = document.getElementById('magnetLinkInput');
         const copyButton = document.getElementById('copyButton');
         const seedingProgressContainer = document.getElementById('seedingProgressContainer');
         const seedingProgressBar = document.getElementById('seedingProgressBar');
@@ -180,10 +181,12 @@
         const downloadComplete = document.getElementById('downloadComplete');
         const downloadFileNameEl = document.getElementById('downloadFileName');
         const downloadLink = document.getElementById('downloadLink');
+        const downloadTimeRemaining = document.getElementById('downloadTimeRemaining');
 
         // QRスキャナー関連のDOM要素
         const qrReaderContainer = document.getElementById('qr-reader-container');
         const cancelScanButton = document.getElementById('cancelScanButton');
+        let html5QrCode;
 
         // IndexedDBを初期化し、履歴を読み込む
         const initDB = () => {
@@ -340,6 +343,28 @@
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         }
+        
+        // ヘルパー関数: 残り時間を読みやすい形式に変換
+        function formatTimeRemaining(seconds) {
+            if (seconds === Infinity) {
+                return '計算中...';
+            }
+            if (seconds < 0) {
+                return '完了';
+            }
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            
+            let parts = [];
+            if (hours > 0) parts.push(`${hours}時間`);
+            if (minutes > 0) parts.push(`${minutes}分`);
+            if (remainingSeconds > 0) parts.push(`${remainingSeconds}秒`);
+            
+            if (parts.length === 0) return 'ほぼ完了';
+            return parts.join(' ');
+        }
+
 
         // ファイル選択時のイベントリスナー
         fileInput.addEventListener('change', async (e) => {
@@ -414,6 +439,7 @@
             // ダウンロード進捗バーを表示
             downloadProgressContainer.classList.remove('hidden');
             downloadComplete.classList.add('hidden');
+            downloadTimeRemaining.textContent = '計算中...';
 
             // ダウンロードを開始
             client.add(magnetURI, (torrent) => {
@@ -423,6 +449,10 @@
                     downloadProgressBar.style.width = `${progress}%`;
                     downloadProgressText.textContent = `ダウンロード中: ${progress}%`;
                     downloadDownloadedAmount.textContent = formatBytes(torrent.downloaded);
+
+                    // ダウンロード残り時間の計算
+                    const timeRemaining = torrent.timeRemaining / 1000;
+                    downloadTimeRemaining.textContent = `残り時間: ${formatTimeRemaining(timeRemaining)}`;
                 });
                 
                 // ダウンロード完了
@@ -430,6 +460,7 @@
                     console.log('ダウンロード完了');
                     downloadProgressContainer.classList.add('hidden');
                     downloadComplete.classList.remove('hidden');
+                    downloadTimeRemaining.textContent = '';
 
                     // ダウンロードしたファイルを処理
                     torrent.files.forEach(file => {
