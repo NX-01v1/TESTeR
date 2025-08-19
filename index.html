@@ -478,18 +478,23 @@
             // UIをリセット
             downloadProgressContainer.classList.remove('hidden');
             downloadComplete.classList.add('hidden');
-            downloadTimeRemaining.textContent = 'ピアを見つけ中...';
+            downloadTimeRemaining.textContent = 'ピアを検索中...';
             peerCountEl.textContent = 'ピア数: 0';
             downloadProgressText.textContent = 'ダウンロード中: 0%';
             downloadDownloadedAmount.textContent = '0 KB';
             downloadProgressBar.style.width = '0%';
+            downloadButton.disabled = true;
+            scanQrButton.disabled = true;
 
             // タイムアウト設定
             downloadTimeout = setTimeout(() => {
-                if (activeTorrent && activeTorrent.numPeers === 0) {
-                    activeTorrent.destroy();
-                    downloadProgressContainer.classList.add('hidden');
-                    showMessage('タイムアウトしました。共有者がオンラインでない可能性があります。');
+                // タイムアウト時に torrent が見つからない、またはピアが 0 の場合
+                if (!activeTorrent || activeTorrent.numPeers === 0) {
+                    if (activeTorrent) {
+                        activeTorrent.destroy();
+                    }
+                    resetDownloadUI();
+                    showMessage('タイムアウトしました。共有者がオフラインの可能性があります。');
                 }
             }, 15000); // 15秒後にタイムアウト
 
@@ -518,10 +523,8 @@
                 // ダウンロード完了
                 torrent.on('done', () => {
                     console.log('ダウンロード完了');
-                    downloadProgressContainer.classList.add('hidden');
+                    resetDownloadUI();
                     downloadComplete.classList.remove('hidden');
-                    downloadTimeRemaining.textContent = '';
-                    peerCountEl.textContent = '';
 
                     // ダウンロードしたファイルを処理
                     torrent.files.forEach(file => {
@@ -552,11 +555,21 @@
                 });
             }).on('error', (err) => {
                 console.error("Torrent add error:", err);
-                downloadProgressContainer.classList.add('hidden');
-                showMessage('ダウンロード中にエラーが発生しました。');
-                clearTimeout(downloadTimeout);
+                resetDownloadUI();
+                showMessage('ダウンロード中にエラーが発生しました。無効なマグネットリンクの可能性があります。');
             });
         }
+        
+        // ダウンロード関連のUIをリセットする関数
+        function resetDownloadUI() {
+            downloadProgressContainer.classList.add('hidden');
+            downloadComplete.classList.add('hidden');
+            downloadTimeRemaining.textContent = '';
+            peerCountEl.textContent = '';
+            downloadButton.disabled = false;
+            scanQrButton.disabled = false;
+        }
+
 
         // ダウンロードボタンのイベントリスナー
         downloadButton.addEventListener('click', () => {
