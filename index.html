@@ -116,6 +116,7 @@
                 <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
                     <div id="downloadProgressBar" class="bg-[#6495ed] h-2.5 rounded-full" style="width: 0%"></div>
                 </div>
+                <p id="peerCount" class="text-sm text-gray-600 text-left mt-2"></p>
                 <p id="downloadTimeRemaining" class="text-xs text-gray-500 text-right"></p>
             </div>
 
@@ -182,11 +183,14 @@
         const downloadFileNameEl = document.getElementById('downloadFileName');
         const downloadLink = document.getElementById('downloadLink');
         const downloadTimeRemaining = document.getElementById('downloadTimeRemaining');
+        const peerCountEl = document.getElementById('peerCount');
 
         // QRスキャナー関連のDOM要素
         const qrReaderContainer = document.getElementById('qr-reader-container');
         const cancelScanButton = document.getElementById('cancelScanButton');
         let html5QrCode;
+        let downloadTimeout;
+        let activeTorrent;
 
         // IndexedDBを初期化し、履歴を読み込む
         const initDB = () => {
@@ -464,14 +468,36 @@
                 showMessage('マグネットリンクが有効ではありません。');
                 return;
             }
+            
+            // 既存のダウンロードをキャンセル
+            if (activeTorrent) {
+                activeTorrent.destroy();
+                clearTimeout(downloadTimeout);
+            }
 
-            // ダウンロード進捗バーを表示
+            // UIをリセット
             downloadProgressContainer.classList.remove('hidden');
             downloadComplete.classList.add('hidden');
-            downloadTimeRemaining.textContent = '計算中...';
+            downloadTimeRemaining.textContent = 'ピアを見つけ中...';
+            peerCountEl.textContent = 'ピア数: 0';
+            downloadProgressText.textContent = 'ダウンロード中: 0%';
+            downloadDownloadedAmount.textContent = '0 KB';
+            downloadProgressBar.style.width = '0%';
+
+            // タイムアウト設定
+            downloadTimeout = setTimeout(() => {
+                if (activeTorrent && activeTorrent.numPeers === 0) {
+                    activeTorrent.destroy();
+                    downloadProgressContainer.classList.add('hidden');
+                    showMessage('タイムアウトしました。共有者がオンラインでない可能性があります。');
+                }
+            }, 15000); // 15秒後にタイムアウト
 
             // ダウンロードを開始
             client.add(magnetURI, (torrent) => {
+                activeTorrent = torrent;
+                clearTimeout(downloadTimeout);
+
                 // ダウンロードの進捗を更新
                 torrent.on('download', () => {
                     const progress = Math.round(torrent.progress * 100);
@@ -484,12 +510,18 @@
                     downloadTimeRemaining.textContent = `残り時間: ${formatTimeRemaining(timeRemaining)}`;
                 });
                 
+                // ピアの接続状況を更新
+                torrent.on('wire', () => {
+                    peerCountEl.textContent = `ピア数: ${torrent.numPeers}`;
+                });
+                
                 // ダウンロード完了
                 torrent.on('done', () => {
                     console.log('ダウンロード完了');
                     downloadProgressContainer.classList.add('hidden');
                     downloadComplete.classList.remove('hidden');
                     downloadTimeRemaining.textContent = '';
+                    peerCountEl.textContent = '';
 
                     // ダウンロードしたファイルを処理
                     torrent.files.forEach(file => {
@@ -518,6 +550,11 @@
                         });
                     });
                 });
+            }).on('error', (err) => {
+                console.error("Torrent add error:", err);
+                downloadProgressContainer.classList.add('hidden');
+                showMessage('ダウンロード中にエラーが発生しました。');
+                clearTimeout(downloadTimeout);
             });
         }
 
