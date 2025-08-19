@@ -127,14 +127,6 @@
                 </a>
             </div>
 
-            <!-- ダウンロード履歴セクション -->
-            <div class="mt-8 pt-4 border-t border-gray-200">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">ダウンロード履歴 (アーカイブ)</h3>
-                <button id="clearHistoryButton" class="bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md hover:bg-blue-600 transition-colors mb-4 hidden">履歴をすべて削除</button>
-                <div id="downloadHistory" class="space-y-4">
-                    <!-- ダウンロードされたアイテムがここに動的に追加される -->
-                </div>
-            </div>
         </div>
     </div>
     
@@ -145,7 +137,6 @@
 
     <script>
         // WebTorrent クライアントを初期化
-        // ピアを見つけやすくするため、複数のトラッカーサーバーを追加
         const client = new WebTorrent({
             tracker: [
                 'wss://tracker.openwebtorrent.com',
@@ -155,14 +146,8 @@
             ]
         });
 
-        // IndexedDB の設定
-        const dbName = 'WebTorrentHistoryDB';
-        const storeName = 'downloadHistory';
-        let db;
 
         // DOM要素のキャッシュ
-        const downloadHistoryContainer = document.getElementById('downloadHistory');
-        const clearHistoryButton = document.getElementById('clearHistoryButton');
         const messageBox = document.getElementById('messageBox');
         const messageText = document.getElementById('messageText');
         
@@ -199,172 +184,6 @@
         let html5QrCode;
         let downloadTimeout;
         let activeTorrent;
-
-        // IndexedDBを初期化し、履歴を読み込む
-        const initDB = () => {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(dbName, 1);
-
-                request.onupgradeneeded = (event) => {
-                    db = event.target.result;
-                    // ファイルデータ (Blob) を格納できるようにストアを作成
-                    db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
-                };
-
-                request.onsuccess = (event) => {
-                    db = event.target.result;
-                    console.log('IndexedDB initialized.');
-                    loadHistory();
-                    resolve();
-                };
-
-                request.onerror = (event) => {
-                    console.error('IndexedDB error:', event.target.error);
-                    reject(event.target.error);
-                };
-            });
-        };
-
-        // 履歴をIndexedDBに保存する
-        const saveHistory = (fileName, magnetURI, fileBlob) => {
-            const transaction = db.transaction(storeName, 'readwrite');
-            const store = transaction.objectStore(storeName);
-            // Blobデータ自体をitemに格納する
-            const item = { fileName, magnetURI, downloadedAt: new Date(), fileBlob };
-            const request = store.add(item);
-            
-            request.onsuccess = (event) => {
-                const id = event.target.result;
-                console.log('History saved:', { ...item, id });
-                renderHistoryItem({ ...item, id });
-                updateHistoryButtonVisibility();
-            };
-            request.onerror = (event) => {
-                console.error("Error saving history:", event.target.error);
-            };
-        };
-
-        // 履歴を読み込んで表示する
-        const loadHistory = () => {
-            const transaction = db.transaction(storeName, 'readonly');
-            const store = transaction.objectStore(storeName);
-            const request = store.getAll();
-            request.onsuccess = (event) => {
-                const history = event.target.result;
-                downloadHistoryContainer.innerHTML = '';
-                history.reverse().forEach(item => {
-                    renderHistoryItem(item);
-                });
-                updateHistoryButtonVisibility();
-            };
-        };
-        
-        // DOMから履歴項目を削除する
-        const deleteHistoryItem = (id, element) => {
-            const transaction = db.transaction(storeName, 'readwrite');
-            const store = transaction.objectStore(storeName);
-            const request = store.delete(id);
-            request.onsuccess = () => {
-                element.remove();
-                showMessage('履歴アイテムが削除されました。');
-                updateHistoryButtonVisibility();
-            };
-            request.onerror = (event) => {
-                console.error("Error deleting history item:", event.target.error);
-                showMessage('履歴アイテムの削除に失敗しました。');
-            };
-        };
-        
-        // すべての履歴を削除する
-        const clearAllHistory = () => {
-            const transaction = db.transaction(storeName, 'readwrite');
-            const store = transaction.objectStore(storeName);
-            const request = store.clear();
-            request.onsuccess = () => {
-                downloadHistoryContainer.innerHTML = '';
-                showMessage('すべての履歴が削除されました。');
-                updateHistoryButtonVisibility();
-            };
-            request.onerror = (event) => {
-                console.error("Error clearing history:", event.target.error);
-                showMessage('履歴のクリアに失敗しました。');
-            };
-        };
-
-        // 履歴がある場合にのみボタンを表示
-        const updateHistoryButtonVisibility = () => {
-            const historyItems = downloadHistoryContainer.querySelectorAll('[data-id]');
-            if (historyItems.length > 0) {
-                clearHistoryButton.classList.remove('hidden');
-            } else {
-                clearHistoryButton.classList.add('hidden');
-            }
-        };
-
-        // DOMに履歴項目をレンダリングする
-        const renderHistoryItem = (item) => {
-            const div = document.createElement('div');
-            div.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 relative';
-            // data-id属性でIndexedDBのキーを紐づける
-            div.setAttribute('data-id', item.id);
-            div.innerHTML = `
-                <div class="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0">
-                    <span class="text-sm font-semibold text-gray-700 break-all mr-2">${item.fileName}</span>
-                    <span class="text-xs text-gray-500">${new Date(item.downloadedAt).toLocaleString()}</span>
-                </div>
-                <div class="mt-2 flex space-x-2">
-                    <!-- アーカイブされたファイルからダウンロードを再開する -->
-                    <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" onclick="downloadFromHistory(event)">ダウンロード</a>
-                    <button class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold" onclick="deleteItem(event)">&times;</button>
-                </div>
-            `;
-            downloadHistoryContainer.prepend(div);
-        };
-
-        // グローバル関数として履歴からのダウンロード機能と削除機能を追加
-        window.downloadFromHistory = (event) => {
-            event.preventDefault();
-            const itemElement = event.target.closest('[data-id]');
-            const id = parseInt(itemElement.dataset.id, 10);
-
-            const transaction = db.transaction(storeName, 'readonly');
-            const store = transaction.objectStore(storeName);
-            const request = store.get(id);
-
-            request.onsuccess = (event) => {
-                const item = event.target.result;
-                if (item && item.fileBlob) {
-                    const blobUrl = URL.createObjectURL(item.fileBlob);
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = item.fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    // BlobURLを解放する
-                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-                    showMessage('アーカイブからダウンロードを開始します。');
-                } else {
-                    showMessage('ファイルデータが見つかりませんでした。');
-                }
-            };
-            request.onerror = () => {
-                showMessage('ファイルデータの取得に失敗しました。');
-            };
-        };
-
-        window.deleteItem = (event) => {
-            const itemElement = event.target.closest('[data-id]');
-            const id = parseInt(itemElement.dataset.id, 10);
-            deleteHistoryItem(id, itemElement);
-        };
-
-        clearHistoryButton.addEventListener('click', () => {
-            clearAllHistory();
-        });
-
-        // アプリケーションロード時にIndexedDBを初期化
-        window.onload = initDB;
 
         // メッセージボックスを表示するヘルパー関数
         function showMessage(text) {
@@ -537,28 +356,14 @@
                     // ダウンロードしたファイルを処理
                     torrent.files.forEach(file => {
                         console.log(file.name);
-                        // ファイルのBlobデータを取得し、履歴に直接保存する
-                        file.getBlob((err, blob) => {
-                            if (err) {
-                                console.error("ファイルのBlob取得に失敗しました:", err);
-                                showMessage("ダウンロードは完了しましたが、保存に失敗しました。");
-                                return;
-                            }
-                            
-                            // ダウンロードリンクを一時的に作成
-                            const url = URL.createObjectURL(blob);
-                            downloadFileNameEl.textContent = file.name;
-                            downloadLink.href = url;
-                            downloadLink.download = file.name;
-                            
-                            // 履歴にBlobデータ自体を保存する
-                            saveHistory(file.name, torrent.magnetURI, blob);
-                            
-                            // ユーザーがファイルを保存した後にBlob URLを解放する
-                            downloadLink.onclick = () => {
-                                setTimeout(() => URL.revokeObjectURL(url), 1000);
-                            };
-                        });
+                        const url = URL.createObjectURL(file.blob);
+                        downloadFileNameEl.textContent = file.name;
+                        downloadLink.href = url;
+                        downloadLink.download = file.name;
+                        // ユーザーがファイルを保存した後にBlob URLを解放する
+                        downloadLink.onclick = () => {
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        };
                     });
                 });
             }).on('error', (err) => {
