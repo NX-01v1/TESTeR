@@ -128,7 +128,7 @@
 
             <!-- ダウンロード履歴セクション -->
             <div class="mt-8 pt-4 border-t border-gray-200">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">ダウンロード履歴</h3>
+                <h3 class="text-xl font-bold text-gray-800 mb-4">ダウンロード履歴 (アーカイブ)</h3>
                 <button id="clearHistoryButton" class="bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md hover:bg-blue-600 transition-colors mb-4 hidden">履歴をすべて削除</button>
                 <div id="downloadHistory" class="space-y-4">
                     <!-- ダウンロードされたアイテムがここに動的に追加される -->
@@ -195,6 +195,7 @@
 
                 request.onupgradeneeded = (event) => {
                     db = event.target.result;
+                    // ファイルデータ (Blob) を格納できるようにストアを作成
                     db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
                 };
 
@@ -213,10 +214,11 @@
         };
 
         // 履歴をIndexedDBに保存する
-        const saveHistory = (fileName, magnetURI, fileURL) => {
+        const saveHistory = (fileName, magnetURI, fileBlob) => {
             const transaction = db.transaction(storeName, 'readwrite');
             const store = transaction.objectStore(storeName);
-            const item = { fileName, magnetURI, downloadedAt: new Date(), fileURL };
+            // Blobデータ自体をitemに格納する
+            const item = { fileName, magnetURI, downloadedAt: new Date(), fileBlob };
             const request = store.add(item);
             
             request.onsuccess = (event) => {
@@ -291,6 +293,7 @@
         const renderHistoryItem = (item) => {
             const div = document.createElement('div');
             div.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200 relative';
+            // data-id属性でIndexedDBのキーを紐づける
             div.setAttribute('data-id', item.id);
             div.innerHTML = `
                 <div class="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0">
@@ -298,18 +301,44 @@
                     <span class="text-xs text-gray-500">${new Date(item.downloadedAt).toLocaleString()}</span>
                 </div>
                 <div class="mt-2 flex space-x-2">
-                    <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" data-magnet="${item.magnetURI}" data-url="${item.fileURL}" onclick="reDownload(event)">ダウンロード</a>
+                    <!-- アーカイブされたファイルからダウンロードを再開する -->
+                    <a href="#" class="flex-1 bg-[#6495ed] text-white text-xs font-semibold py-2 px-4 rounded-md text-center hover:bg-blue-600 transition-colors" onclick="downloadFromHistory(event)">ダウンロード</a>
                     <button class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold" onclick="deleteItem(event)">&times;</button>
                 </div>
             `;
             downloadHistoryContainer.prepend(div);
         };
 
-        // グローバル関数として再ダウンロード機能とコピー機能、削除機能を追加
-        window.reDownload = (event) => {
+        // グローバル関数として履歴からのダウンロード機能と削除機能を追加
+        window.downloadFromHistory = (event) => {
             event.preventDefault();
-            const magnetURI = event.target.dataset.magnet;
-            startDownload(magnetURI);
+            const itemElement = event.target.closest('[data-id]');
+            const id = parseInt(itemElement.dataset.id, 10);
+
+            const transaction = db.transaction(storeName, 'readonly');
+            const store = transaction.objectStore(storeName);
+            const request = store.get(id);
+
+            request.onsuccess = (event) => {
+                const item = event.target.result;
+                if (item && item.fileBlob) {
+                    const blobUrl = URL.createObjectURL(item.fileBlob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = item.fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    // BlobURLを解放する
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                    showMessage('アーカイブからダウンロードを開始します。');
+                } else {
+                    showMessage('ファイルデータが見つかりませんでした。');
+                }
+            };
+            request.onerror = () => {
+                showMessage('ファイルデータの取得に失敗しました。');
+            };
         };
 
         window.deleteItem = (event) => {
@@ -465,13 +494,27 @@
                     // ダウンロードしたファイルを処理
                     torrent.files.forEach(file => {
                         console.log(file.name);
-                        file.getBlobURL((err, url) => {
-                            if (err) throw err;
+                        // ファイルのBlobデータを取得し、履歴に直接保存する
+                        file.getBlob((err, blob) => {
+                            if (err) {
+                                console.error("ファイルのBlob取得に失敗しました:", err);
+                                showMessage("ダウンロードは完了しましたが、保存に失敗しました。");
+                                return;
+                            }
+                            
+                            // ダウンロードリンクを一時的に作成
+                            const url = URL.createObjectURL(blob);
                             downloadFileNameEl.textContent = file.name;
                             downloadLink.href = url;
                             downloadLink.download = file.name;
-                            // 履歴を保存
-                            saveHistory(file.name, torrent.magnetURI, url);
+                            
+                            // 履歴にBlobデータ自体を保存する
+                            saveHistory(file.name, torrent.magnetURI, blob);
+                            
+                            // ユーザーがファイルを保存した後にBlob URLを解放する
+                            downloadLink.onclick = () => {
+                                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                            };
                         });
                     });
                 });
