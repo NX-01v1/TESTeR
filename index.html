@@ -55,15 +55,29 @@
     </div>
 
     <script type="module">
-        // JSONデータは外部ファイルとして提供されていると仮定
-        import partsData from './PartsData.json' assert { type: 'json' };
+        let partsData = []; // JSONデータを格納する変数
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const buildUrlInput = document.getElementById('buildUrl');
             const loadBuildButton = document.getElementById('loadBuild');
             const partDetailsDiv = document.getElementById('partDetails');
             const errorMessageDiv = document.getElementById('errorMessage');
             const initialMessageDiv = document.getElementById('initialMessage');
+
+            // PartsData.jsonを読み込む
+            try {
+                const response = await fetch('./PartsData.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                partsData = await response.json();
+                console.log("PartsData.json loaded successfully:", partsData);
+            } catch (e) {
+                console.error("PartsData.jsonの読み込み中にエラーが発生しました:", e);
+                errorMessageDiv.textContent = `PartsData.jsonの読み込みに失敗しました: ${e.message}`;
+                errorMessageDiv.classList.remove('hidden');
+                return; // データがないと機能しないため、ここで停止
+            }
 
             // URLからビルドIDを解析する関数
             function parseBuildIdFromUrl(url) {
@@ -100,7 +114,6 @@
                     "Head", "Core", "Arms", "Legs", "Booster", "FCS", "Generator",
                     "Right Arm Unit", "Left Arm Unit", "Right Back Unit", "Left Back Unit", "Expansions"
                 ];
-                let currentPartIndex = 0;
 
                 // 各パーツの種類について表示
                 partKinds.forEach(kind => {
@@ -109,42 +122,45 @@
 
                     // 特定のKindに複数のパーツがある場合（例: Unit）に対応
                     if (kind.includes("Unit")) {
-                        const rightArmUnitId = buildIds[7]; // 例: URLの7番目がRight Arm Unit
+                        // URLのインデックスは https://matteosal.github.io/ac6-advanced-garage/ のビルド順序と対応
+                        // buildIds の各要素が 'DefaultOrdering' に対応すると仮定
+                        // 0: Head, 1: Legs, 2: Generator, 3: Core, 4: Booster, 5: Arms, 6: FCS
+                        // 7: Right Arm Unit, 8: Left Arm Unit, 9: Right Back Unit, 10: Left Back Unit, 11: Expansions
+                        const rightArmUnitId = buildIds[7];
                         const leftArmUnitId = buildIds[8];
                         const rightBackUnitId = buildIds[9];
                         const leftBackUnitId = buildIds[10];
 
-                        if (kind === "Right Arm Unit" && rightArmUnitId) {
+                        if (kind === "Right Arm Unit" && rightArmUnitId !== undefined) {
                             part = findPartById(rightArmUnitId);
                             partId = rightArmUnitId;
-                        } else if (kind === "Left Arm Unit" && leftArmUnitId) {
+                        } else if (kind === "Left Arm Unit" && leftArmUnitId !== undefined) {
                             part = findPartById(leftArmUnitId);
                             partId = leftArmUnitId;
-                        } else if (kind === "Right Back Unit" && rightBackUnitId) {
+                        } else if (kind === "Right Back Unit" && rightBackUnitId !== undefined) {
                             part = findPartById(rightBackUnitId);
                             partId = rightBackUnitId;
-                        } else if (kind === "Left Back Unit" && leftBackUnitId) {
+                        } else if (kind === "Left Back Unit" && leftBackUnitId !== undefined) {
                             part = findPartById(leftBackUnitId);
                             partId = leftBackUnitId;
                         }
                     } else if (kind === "Expansions") {
                         const expansionId = buildIds[11];
-                        if (expansionId) {
+                        if (expansionId !== undefined) {
                             part = findPartById(expansionId);
                             partId = expansionId;
                         }
                     } else {
                         // その他の主要パーツ (Head, Core, Arms, Legs, Booster, FCS, Generator)
-                        // URLのインデックスはhttps://matteosal.github.io/ac6-advanced-garage/ のビルド順序と対応させる
                         let idIndex;
                         switch (kind) {
                             case "Head": idIndex = 0; break;
+                            case "Legs": idIndex = 1; break;
+                            case "Generator": idIndex = 2; break;
                             case "Core": idIndex = 3; break;
-                            case "Arms": idIndex = 5; break;
-                            case "Legs": idIndex = 1; break; // LegsはURLで2番目に来る
                             case "Booster": idIndex = 4; break;
+                            case "Arms": idIndex = 5; break;
                             case "FCS": idIndex = 6; break;
-                            case "Generator": idIndex = 2; break; // GeneratorはURLで3番目に来る
                             default: idIndex = -1;
                         }
 
@@ -164,7 +180,7 @@
                                 <p class="text-gray-300 text-sm"><span class="font-semibold">${key}:</span> ${value}</p>
                             `).join('')}
                         ` : `
-                            <p class="text-gray-400">パーツが見つかりません (ID: ${partId || 'N/A'})</p>
+                            <p class="text-gray-400">パーツが見つかりません (ID: ${partId !== undefined ? partId : 'N/A'})</p>
                         `}
                     `;
                     partDetailsDiv.appendChild(partCard);
@@ -173,7 +189,7 @@
 
             // ページ読み込み時にURLからビルドを自動的に読み込む
             const initialUrl = buildUrlInput.value;
-            if (initialUrl) {
+            if (initialUrl && partsData.length > 0) { // partsDataが読み込まれてから実行
                 const initialBuildIds = parseBuildIdFromUrl(initialUrl);
                 displayPartDetails(initialBuildIds);
             }
