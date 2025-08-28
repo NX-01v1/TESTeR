@@ -3,202 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AC6パーツ構成ビューア</title>
+    <title>AC6 ビルドビューア</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1a202c; /* Dark background for AC style */
-            color: #e2e8f0; /* Light text color */
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 960px;
         }
         .card {
-            background-color: #2d3748; /* Slightly lighter dark card */
-            border-color: #4a5568;
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .header-bg {
-            background-color: #2c5282; /* Blue header */
+        .header {
+            background-color: #1a202c;
+            color: #ffffff;
+            padding: 1rem;
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
         }
-        .text-accent {
-            color: #63b3ed; /* Accent blue color */
+        .part-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .part-item:last-child {
+            border-bottom: none;
+        }
+        .part-name {
+            font-weight: 600;
+        }
+        .part-stats {
+            text-align: right;
+        }
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+            }
+            .part-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .part-stats {
+                text-align: left;
+                margin-top: 0.25rem;
+            }
         }
     </style>
 </head>
-<body class="p-6">
-    <div class="max-w-4xl mx-auto rounded-lg shadow-lg card">
-        <header class="header-bg p-4 rounded-t-lg">
-            <h1 class="text-3xl font-bold text-white text-center">AC6パーツ構成ビューア</h1>
-        </header>
-        <main class="p-6">
-            <div class="mb-6">
-                <label for="buildUrl" class="block text-lg font-medium mb-2">
-                    ビルドURL:
-                </label>
-                <input type="text" id="buildUrl" class="w-full p-3 rounded-md bg-gray-700 border border-gray-600 focus:ring-blue-500 focus:border-blue-500 text-white"
-                       value="https://matteosal.github.io/ac6-advanced-garage/?build=61-78-10-69-107-140-153-185-192-203-222-228"
-                       placeholder="ここにビルドURLを入力してください">
-                <button id="loadBuild" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-300 ease-in-out shadow-md">
-                    ビルドを読み込む
-                </button>
+<body class="bg-gray-100 p-4 min-h-screen flex items-center justify-center">
+    <div class="container mx-auto">
+        <div class="card p-6">
+            <div class="header text-center mb-6 rounded-t-lg">
+                <h1 class="text-3xl font-bold">AC6 ビルドビューア</h1>
             </div>
 
-            <div id="partDetails" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <!-- パーツ詳細がここに表示されます -->
-                <div class="md:col-span-2 text-center text-xl text-gray-400" id="initialMessage">
-                    URLを入力して「ビルドを読み込む」ボタンをクリックしてください。
+            <div id="build-display" class="space-y-4">
+                <div class="mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">構成詳細</h2>
+                    <div id="build-parts" class="border border-gray-200 rounded-md">
+                        <!-- Parts will be loaded here by JavaScript -->
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">合計統計</h2>
+                    <div class="border border-gray-200 rounded-md p-4 bg-gray-50">
+                        <div class="flex justify-between font-semibold mb-1">
+                            <span>合計EN負荷:</span>
+                            <span id="total-en-load">0.0</span>
+                        </div>
+                        <div class="flex justify-between font-semibold">
+                            <span>合計重量:</span>
+                            <span id="total-weight">0.0</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div id="errorMessage" class="hidden mt-6 bg-red-800 text-white p-4 rounded-md text-center">
-                <!-- エラーメッセージがここに表示されます -->
+            <div id="error-message" class="text-red-500 text-center mt-4 hidden">
+                ビルドの読み込み中にエラーが発生しました。URLを確認してください。
             </div>
-        </main>
+        </div>
     </div>
 
-    <script type="module">
-        let partsData = []; // JSONデータを格納する変数
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            const buildUrlInput = document.getElementById('buildUrl');
-            const loadBuildButton = document.getElementById('loadBuild');
-            const partDetailsDiv = document.getElementById('partDetails');
-            const errorMessageDiv = document.getElementById('errorMessage');
-            const initialMessageDiv = document.getElementById('initialMessage');
-
-            // PartsData.jsonを読み込む
-            try {
-                const response = await fetch('./PartsData.json');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                partsData = await response.json();
-                console.log("PartsData.json loaded successfully:", partsData);
-            } catch (e) {
-                console.error("PartsData.jsonの読み込み中にエラーが発生しました:", e);
-                errorMessageDiv.textContent = `PartsData.jsonの読み込みに失敗しました: ${e.message}`;
-                errorMessageDiv.classList.remove('hidden');
-                return; // データがないと機能しないため、ここで停止
-            }
-
-            // URLからビルドIDを解析する関数
-            function parseBuildIdFromUrl(url) {
-                try {
-                    const urlObj = new URL(url);
-                    const buildParam = urlObj.searchParams.get('build');
-                    if (buildParam) {
-                        return buildParam.split('-').map(Number);
-                    }
-                } catch (e) {
-                    console.error("無効なURL形式:", e);
-                }
-                return [];
-            }
-
-            // パーツデータをIDで検索する関数
-            function findPartById(id) {
-                return partsData.find(part => part.DefaultOrdering === id);
-            }
-
-            // パーツ詳細を表示する関数
-            function displayPartDetails(buildIds) {
-                partDetailsDiv.innerHTML = ''; // 既存の表示をクリア
-                errorMessageDiv.classList.add('hidden');
-                initialMessageDiv.classList.add('hidden');
-
-                if (buildIds.length === 0) {
-                    errorMessageDiv.textContent = 'ビルドIDが見つかりませんでした。有効なURLを入力してください。';
-                    errorMessageDiv.classList.remove('hidden');
-                    return;
-                }
-
-                const partKinds = [
-                    "Head", "Core", "Arms", "Legs", "Booster", "FCS", "Generator",
-                    "Right Arm Unit", "Left Arm Unit", "Right Back Unit", "Left Back Unit", "Expansions"
-                ];
-
-                // 各パーツの種類について表示
-                partKinds.forEach(kind => {
-                    let part = null;
-                    let partId = null;
-
-                    // 特定のKindに複数のパーツがある場合（例: Unit）に対応
-                    if (kind.includes("Unit")) {
-                        // URLのインデックスは https://matteosal.github.io/ac6-advanced-garage/ のビルド順序と対応
-                        // buildIds の各要素が 'DefaultOrdering' に対応すると仮定
-                        // 0: Head, 1: Legs, 2: Generator, 3: Core, 4: Booster, 5: Arms, 6: FCS
-                        // 7: Right Arm Unit, 8: Left Arm Unit, 9: Right Back Unit, 10: Left Back Unit, 11: Expansions
-                        const rightArmUnitId = buildIds[7];
-                        const leftArmUnitId = buildIds[8];
-                        const rightBackUnitId = buildIds[9];
-                        const leftBackUnitId = buildIds[10];
-
-                        if (kind === "Right Arm Unit" && rightArmUnitId !== undefined) {
-                            part = findPartById(rightArmUnitId);
-                            partId = rightArmUnitId;
-                        } else if (kind === "Left Arm Unit" && leftArmUnitId !== undefined) {
-                            part = findPartById(leftArmUnitId);
-                            partId = leftArmUnitId;
-                        } else if (kind === "Right Back Unit" && rightBackUnitId !== undefined) {
-                            part = findPartById(rightBackUnitId);
-                            partId = rightBackUnitId;
-                        } else if (kind === "Left Back Unit" && leftBackUnitId !== undefined) {
-                            part = findPartById(leftBackUnitId);
-                            partId = leftBackUnitId;
-                        }
-                    } else if (kind === "Expansions") {
-                        const expansionId = buildIds[11];
-                        if (expansionId !== undefined) {
-                            part = findPartById(expansionId);
-                            partId = expansionId;
-                        }
-                    } else {
-                        // その他の主要パーツ (Head, Core, Arms, Legs, Booster, FCS, Generator)
-                        let idIndex;
-                        switch (kind) {
-                            case "Head": idIndex = 0; break;
-                            case "Legs": idIndex = 1; break;
-                            case "Generator": idIndex = 2; break;
-                            case "Core": idIndex = 3; break;
-                            case "Booster": idIndex = 4; break;
-                            case "Arms": idIndex = 5; break;
-                            case "FCS": idIndex = 6; break;
-                            default: idIndex = -1;
-                        }
-
-                        if (idIndex !== -1 && buildIds[idIndex] !== undefined) {
-                            part = findPartById(buildIds[idIndex]);
-                            partId = buildIds[idIndex];
-                        }
-                    }
-
-                    const partCard = document.createElement('div');
-                    partCard.className = 'bg-gray-800 p-4 rounded-md shadow-md card';
-                    partCard.innerHTML = `
-                        <h3 class="text-xl font-semibold text-accent mb-2">${kind}</h3>
-                        ${part ? `
-                            <p class="text-white text-lg font-medium">${part.Name}</p>
-                            ${Object.entries(part).map(([key, value]) => `
-                                <p class="text-gray-300 text-sm"><span class="font-semibold">${key}:</span> ${value}</p>
-                            `).join('')}
-                        ` : `
-                            <p class="text-gray-400">パーツが見つかりません (ID: ${partId !== undefined ? partId : 'N/A'})</p>
-                        `}
-                    `;
-                    partDetailsDiv.appendChild(partCard);
-                });
-            }
-
-            // ページ読み込み時にURLからビルドを自動的に読み込む
-            const initialUrl = buildUrlInput.value;
-            if (initialUrl && partsData.length > 0) { // partsDataが読み込まれてから実行
-                const initialBuildIds = parseBuildIdFromUrl(initialUrl);
-                displayPartDetails(initialBuildIds);
-            }
-
-            loadBuildButton.addEventListener('click', () => {
-                const url = buildUrlInput.value;
-                const buildIds = parseBuildIdFromUrl(url);
-                displayPartDetails(buildIds);
-            });
-        });
-    </script>
+    <script src="partsViewer.js"></script>
 </body>
+</html>
