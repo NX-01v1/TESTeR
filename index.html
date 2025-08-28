@@ -41,6 +41,24 @@
         .part-stats {
             text-align: right;
         }
+        /* Loading spinner styles */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 640px) {
             .container {
                 padding: 1rem;
@@ -73,6 +91,11 @@
                         読み込む
                     </button>
                 </div>
+            </div>
+
+            <div id="loading-indicator" class="flex items-center justify-center py-4 hidden">
+                <div class="loader"></div>
+                <span class="text-gray-700">読み込み中...</span>
             </div>
 
             <div id="build-display" class="space-y-4">
