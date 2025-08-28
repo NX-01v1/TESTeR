@@ -3,200 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iOS風アイコン作成ツール</title>
+    <title>AC6パーツ構成ビューア</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background for AC style */
+            color: #e2e8f0; /* Light text color */
         }
-        .container {
-            max-width: 600px;
+        .card {
+            background-color: #2d3748; /* Slightly lighter dark card */
+            border-color: #4a5568;
         }
-        .image-preview-container {
-            position: relative;
-            width: 256px;
-            height: 256px;
-            overflow: hidden;
-            border-radius: 48px; /* iOS icon corner radius */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        .header-bg {
+            background-color: #2c5282; /* Blue header */
         }
-        .image-preview {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .drop-area {
-            border: 2px dashed #cbd5e1;
-            transition: all 0.3s ease;
-        }
-        .drop-area.active {
-            border-color: #3b82f6;
-            background-color: #eff6ff;
+        .text-accent {
+            color: #63b3ed; /* Accent blue color */
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-
-    <div class="container bg-white rounded-3xl shadow-2xl p-8 space-y-8">
-        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800">iOS風アイコン作成ツール</h1>
-
-        <!-- Image Upload and Preview Section -->
-        <div class="flex flex-col items-center space-y-6">
-            <div id="image-preview-container" class="image-preview-container bg-gray-200 flex items-center justify-center">
-                <img id="image-preview" src="" alt="プレビュー" class="image-preview hidden">
-                <span id="placeholder-text" class="text-gray-500">画像をドラッグ＆ドロップ</span>
+<body class="p-6">
+    <div class="max-w-4xl mx-auto rounded-lg shadow-lg card">
+        <header class="header-bg p-4 rounded-t-lg">
+            <h1 class="text-3xl font-bold text-white text-center">AC6パーツ構成ビューア</h1>
+        </header>
+        <main class="p-6">
+            <div class="mb-6">
+                <label for="buildUrl" class="block text-lg font-medium mb-2">
+                    ビルドURL:
+                </label>
+                <input type="text" id="buildUrl" class="w-full p-3 rounded-md bg-gray-700 border border-gray-600 focus:ring-blue-500 focus:border-blue-500 text-white"
+                       value="https://matteosal.github.io/ac6-advanced-garage/?build=61-78-10-69-107-140-153-185-192-203-222-228"
+                       placeholder="ここにビルドURLを入力してください">
+                <button id="loadBuild" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-300 ease-in-out shadow-md">
+                    ビルドを読み込む
+                </button>
             </div>
-            
-            <div id="drop-area" class="drop-area w-full p-8 rounded-2xl cursor-pointer text-center">
-                <p class="text-lg text-gray-600">画像をここにドラッグ＆ドロップ</p>
-                <p class="text-sm text-gray-400 mt-1">または</p>
-                <button id="select-button" class="mt-4 px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-700 transition duration-300">画像を選択</button>
-                <input type="file" id="image-input" accept="image/*" class="hidden">
-            </div>
-        </div>
 
-        <!-- Download Section -->
-        <div id="download-section" class="flex flex-col items-center space-y-4 hidden">
-            <h2 class="text-2xl font-bold text-gray-800">完成！</h2>
-            <p class="text-gray-600 text-center">下のボタンから加工された画像をダウンロードできます。</p>
-            <div class="flex space-x-4">
-                <button id="download-png" class="px-6 py-3 bg-green-600 text-white font-bold rounded-full shadow-lg hover:bg-green-700 transition duration-300">PNGダウンロード</button>
+            <div id="partDetails" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <!-- パーツ詳細がここに表示されます -->
+                <div class="md:col-span-2 text-center text-xl text-gray-400" id="initialMessage">
+                    URLを入力して「ビルドを読み込む」ボタンをクリックしてください。
+                </div>
             </div>
-        </div>
-
-        <!-- Canvas for image processing -->
-        <canvas id="image-canvas" class="hidden"></canvas>
+            <div id="errorMessage" class="hidden mt-6 bg-red-800 text-white p-4 rounded-md text-center">
+                <!-- エラーメッセージがここに表示されます -->
+            </div>
+        </main>
     </div>
 
-    <script>
-        // DOM要素の取得
-        const dropArea = document.getElementById('drop-area');
-        const selectButton = document.getElementById('select-button');
-        const imageInput = document.getElementById('image-input');
-        const imagePreview = document.getElementById('image-preview');
-        const imagePreviewContainer = document.getElementById('image-preview-container');
-        const placeholderText = document.getElementById('placeholder-text');
-        const downloadSection = document.getElementById('download-section');
-        const downloadPngButton = document.getElementById('download-png');
-        const imageCanvas = document.getElementById('image-canvas');
-        const ctx = imageCanvas.getContext('2d');
+    <script type="module">
+        // JSONデータは外部ファイルとして提供されていると仮定
+        import partsData from './PartsData.json' assert { type: 'json' };
 
-        // イベントリスナーの設定
-        dropArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropArea.classList.add('active');
-        });
+        document.addEventListener('DOMContentLoaded', () => {
+            const buildUrlInput = document.getElementById('buildUrl');
+            const loadBuildButton = document.getElementById('loadBuild');
+            const partDetailsDiv = document.getElementById('partDetails');
+            const errorMessageDiv = document.getElementById('errorMessage');
+            const initialMessageDiv = document.getElementById('initialMessage');
 
-        dropArea.addEventListener('dragleave', (e) => {
-            dropArea.classList.remove('active');
-        });
-
-        dropArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropArea.classList.remove('active');
-            if (e.dataTransfer.files.length > 0) {
-                handleFile(e.dataTransfer.files[0]);
+            // URLからビルドIDを解析する関数
+            function parseBuildIdFromUrl(url) {
+                try {
+                    const urlObj = new URL(url);
+                    const buildParam = urlObj.searchParams.get('build');
+                    if (buildParam) {
+                        return buildParam.split('-').map(Number);
+                    }
+                } catch (e) {
+                    console.error("無効なURL形式:", e);
+                }
+                return [];
             }
-        });
 
-        selectButton.addEventListener('click', () => {
-            imageInput.click();
-        });
-
-        imageInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
+            // パーツデータをIDで検索する関数
+            function findPartById(id) {
+                return partsData.find(part => part.DefaultOrdering === id);
             }
-        });
 
-        downloadPngButton.addEventListener('click', () => {
-            downloadImage('png');
-        });
+            // パーツ詳細を表示する関数
+            function displayPartDetails(buildIds) {
+                partDetailsDiv.innerHTML = ''; // 既存の表示をクリア
+                errorMessageDiv.classList.add('hidden');
+                initialMessageDiv.classList.add('hidden');
 
-        // ファイル処理関数
-        function handleFile(file) {
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    imagePreview.src = e.target.result;
-                    imagePreview.classList.remove('hidden');
-                    placeholderText.classList.add('hidden');
-                    processImage(e.target.result);
-                };
-                reader.readAsDataURL(file);
-            } else {
-                // DOM要素の代わりにカスタムメッセージボックスを使用
-                const messageBox = document.createElement('div');
-                messageBox.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50';
-                messageBox.innerHTML = `
-                    <div class="bg-white p-8 rounded-lg shadow-xl text-center">
-                        <p class="text-xl font-semibold text-gray-800 mb-4">エラー</p>
-                        <p class="text-gray-600">画像ファイルを選択してください。</p>
-                        <button onclick="this.parentElement.parentElement.remove()" class="mt-6 px-6 py-2 bg-blue-600 text-white rounded-full">OK</button>
-                    </div>
-                `;
-                document.body.appendChild(messageBox);
+                if (buildIds.length === 0) {
+                    errorMessageDiv.textContent = 'ビルドIDが見つかりませんでした。有効なURLを入力してください。';
+                    errorMessageDiv.classList.remove('hidden');
+                    return;
+                }
+
+                const partKinds = [
+                    "Head", "Core", "Arms", "Legs", "Booster", "FCS", "Generator",
+                    "Right Arm Unit", "Left Arm Unit", "Right Back Unit", "Left Back Unit", "Expansions"
+                ];
+                let currentPartIndex = 0;
+
+                // 各パーツの種類について表示
+                partKinds.forEach(kind => {
+                    let part = null;
+                    let partId = null;
+
+                    // 特定のKindに複数のパーツがある場合（例: Unit）に対応
+                    if (kind.includes("Unit")) {
+                        const rightArmUnitId = buildIds[7]; // 例: URLの7番目がRight Arm Unit
+                        const leftArmUnitId = buildIds[8];
+                        const rightBackUnitId = buildIds[9];
+                        const leftBackUnitId = buildIds[10];
+
+                        if (kind === "Right Arm Unit" && rightArmUnitId) {
+                            part = findPartById(rightArmUnitId);
+                            partId = rightArmUnitId;
+                        } else if (kind === "Left Arm Unit" && leftArmUnitId) {
+                            part = findPartById(leftArmUnitId);
+                            partId = leftArmUnitId;
+                        } else if (kind === "Right Back Unit" && rightBackUnitId) {
+                            part = findPartById(rightBackUnitId);
+                            partId = rightBackUnitId;
+                        } else if (kind === "Left Back Unit" && leftBackUnitId) {
+                            part = findPartById(leftBackUnitId);
+                            partId = leftBackUnitId;
+                        }
+                    } else if (kind === "Expansions") {
+                        const expansionId = buildIds[11];
+                        if (expansionId) {
+                            part = findPartById(expansionId);
+                            partId = expansionId;
+                        }
+                    } else {
+                        // その他の主要パーツ (Head, Core, Arms, Legs, Booster, FCS, Generator)
+                        // URLのインデックスはhttps://matteosal.github.io/ac6-advanced-garage/ のビルド順序と対応させる
+                        let idIndex;
+                        switch (kind) {
+                            case "Head": idIndex = 0; break;
+                            case "Core": idIndex = 3; break;
+                            case "Arms": idIndex = 5; break;
+                            case "Legs": idIndex = 1; break; // LegsはURLで2番目に来る
+                            case "Booster": idIndex = 4; break;
+                            case "FCS": idIndex = 6; break;
+                            case "Generator": idIndex = 2; break; // GeneratorはURLで3番目に来る
+                            default: idIndex = -1;
+                        }
+
+                        if (idIndex !== -1 && buildIds[idIndex] !== undefined) {
+                            part = findPartById(buildIds[idIndex]);
+                            partId = buildIds[idIndex];
+                        }
+                    }
+
+                    const partCard = document.createElement('div');
+                    partCard.className = 'bg-gray-800 p-4 rounded-md shadow-md card';
+                    partCard.innerHTML = `
+                        <h3 class="text-xl font-semibold text-accent mb-2">${kind}</h3>
+                        ${part ? `
+                            <p class="text-white text-lg font-medium">${part.Name}</p>
+                            ${Object.entries(part).map(([key, value]) => `
+                                <p class="text-gray-300 text-sm"><span class="font-semibold">${key}:</span> ${value}</p>
+                            `).join('')}
+                        ` : `
+                            <p class="text-gray-400">パーツが見つかりません (ID: ${partId || 'N/A'})</p>
+                        `}
+                    `;
+                    partDetailsDiv.appendChild(partCard);
+                });
             }
-        }
 
-        // 画像加工関数
-        function processImage(imageDataUrl) {
-            const img = new Image();
-            img.onload = () => {
-                const size = Math.min(img.width, img.height);
-                imageCanvas.width = size;
-                imageCanvas.height = size;
-
-                // iOSアイコンの角丸のパスを作成
-                const radius = size * 0.1875; // iOS icons have a radius of roughly 18.75% of the side length
-                ctx.beginPath();
-                ctx.moveTo(radius, 0);
-                ctx.lineTo(size - radius, 0);
-                ctx.quadraticCurveTo(size, 0, size, radius);
-                ctx.lineTo(size, size - radius);
-                ctx.quadraticCurveTo(size, size, size - radius, size);
-                ctx.lineTo(radius, size);
-                ctx.quadraticCurveTo(0, size, 0, size - radius);
-                ctx.lineTo(0, radius);
-                ctx.quadraticCurveTo(0, 0, radius, 0);
-                ctx.closePath();
-                ctx.clip();
-
-                // 画像をキャンバスの中央に描画
-                const offsetX = (img.width - size) / 2;
-                const offsetY = (img.height - size) / 2;
-                ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, size, size);
-
-                downloadSection.classList.remove('hidden');
-            };
-            img.src = imageDataUrl;
-        }
-
-        // 画像ダウンロード関数
-        function downloadImage(format) {
-            const link = document.createElement('a');
-            let dataUrl;
-            let filename;
-            
-            if (format === 'png') {
-                dataUrl = imageCanvas.toDataURL('image/png');
-                filename = 'ios-icon.png';
-            } else {
-                // デフォルトはPNG
-                dataUrl = imageCanvas.toDataURL('image/png');
-                filename = 'ios-icon.png';
+            // ページ読み込み時にURLからビルドを自動的に読み込む
+            const initialUrl = buildUrlInput.value;
+            if (initialUrl) {
+                const initialBuildIds = parseBuildIdFromUrl(initialUrl);
+                displayPartDetails(initialBuildIds);
             }
-            
-            link.href = dataUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
 
-        // 初期表示
-        imagePreviewContainer.style.borderRadius = '20%'; /* Visually similar to iOS icons */
+            loadBuildButton.addEventListener('click', () => {
+                const url = buildUrlInput.value;
+                const buildIds = parseBuildIdFromUrl(url);
+                displayPartDetails(buildIds);
+            });
+        });
     </script>
 </body>
 </html>
