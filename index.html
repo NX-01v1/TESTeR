@@ -61,18 +61,18 @@
 </head>
 <body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
 
-<!-- Console Section (Moved to the top to be visible on any screen) -->
+<!-- Console Section -->
 <div class="fixed bottom-0 left-0 w-full card p-4 z-60">
     <h2 class="text-xl font-bold mb-2 text-green-300">コンソール</h2>
     <div id="app-console" class="bg-gray-700 text-green-300 p-2 rounded-md h-32 overflow-y-scroll text-sm font-mono"></div>
 </div>
 
-<div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-center z-50">
+<div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-center z-50 hidden">
     <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500"></div>
     <p class="mt-4 text-white text-lg font-semibold">初期化中...</p>
 </div>
 
-<div id="main-content" class="w-full max-w-2xl mx-auto flex flex-col items-center justify-center gap-6 p-6 card hidden">
+<div id="main-content" class="w-full max-w-2xl mx-auto flex flex-col items-center justify-center gap-6 p-6 card">
     <h1 class="text-4xl sm:text-5xl font-extrabold text-center text-gradient mb-4">
         同期音楽プレーヤー
     </h1>
@@ -124,25 +124,6 @@
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // Global variables for Firebase configuration. DO NOT modify these.
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    let firebaseConfig = {};
-    try {
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } else {
-            throw new Error('Firebase configuration variable not provided.');
-        }
-    } catch (e) {
-        console.error('Failed to parse Firebase configuration:', e);
-        firebaseConfig = {}; // Fallback to an empty object
-    }
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
     // DOM Elements
     const loadingOverlay = document.getElementById('loading-overlay');
     const mainContent = document.getElementById('main-content');
@@ -163,9 +144,9 @@
     const appConsole = document.getElementById('app-console');
 
     // State Variables
-    let userId = null;
     let isHost = false;
     const syncThreshold = 0.5; // Sync if difference is more than 0.5 seconds
+    const localStorageKey = 'music-sync-state';
 
     // Function to add a log message to the console
     function log(message) {
@@ -188,83 +169,26 @@
         dialogModal.classList.add('hidden');
     }
 
-    // Firebase Initialization
-    let app, db, auth;
-    try {
-        if (!firebaseConfig.projectId) {
-            throw new Error('"projectId" not provided in Firebase config.');
-        }
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        log("Firebaseの初期化に成功しました。");
-
-        // Auth State Listener
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                log('User signed in with UID: ' + userId);
-                appIdEl.textContent = appId;
-                userIdEl.textContent = userId;
-            } else {
-                log('No user signed in. Attempting anonymous sign-in...');
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                        log('Signed in with custom token.');
-                    } else {
-                        await signInAnonymously(auth);
-                        log('Signed in anonymously.');
-                    }
-                } catch (error) {
-                    console.error("Authentication failed:", error);
-                    log("認証に失敗しました: " + error.message);
-                    showDialog("認証に失敗しました。ページをリロードしてください。", "⚠️");
-                }
-            }
-            // Always hide loading overlay and show content after the initial auth state check,
-            // regardless of success or failure.
-            loadingOverlay.classList.add('hidden');
-            mainContent.classList.remove('hidden');
-        });
-
-    } catch (error) {
-        console.error("Firebase initialization failed:", error);
-        log("Firebaseの初期化に失敗しました: " + error.message);
-        showDialog("Firebaseの初期化に失敗しました。ページをリロードしてください。", "⚠️");
-        loadingOverlay.classList.add('hidden');
-        mainContent.classList.remove('hidden');
-    }
-
-    // Firestore Functions
-    const getDocRef = (path) => doc(db, path);
-    const getPublicDocRef = () => getDocRef(`/artifacts/${appId}/public/data/music-sync/host-state`);
-
-    async function updateHostState(state) {
+    // Function to update host state in localStorage
+    function updateHostState(state) {
         if (!isHost) return;
         try {
-            await setDoc(getPublicDocRef(), state);
+            localStorage.setItem(localStorageKey, JSON.stringify(state));
             log("ホストの状態を更新しました。");
         } catch (e) {
-            console.error("Error updating host state: ", e);
+            console.error("Error updating host state in localStorage: ", e);
             log("ホストの状態を更新できませんでした。: " + e.message);
-            showDialog("ホストの状態を更新できませんでした。ネットワーク接続を確認してください。", "⚠️");
+            showDialog("ホストの状態を更新できませんでした。ローカルストレージを確認してください。", "⚠️");
         }
     }
 
-    function listenForHostChanges() {
-        log("ホストの変更をリッスンしています...");
-        onSnapshot(getPublicDocRef(), (doc) => {
-            if (doc.exists() && !isHost) {
-                const data = doc.data();
-                log("ホストの状態更新を受信しました。");
-                syncListener(data);
-            }
-        }, (error) => {
-            console.error("Error listening for host changes:", error);
-            log("同期情報の受信に失敗しました。: " + error.message);
-            showDialog("同期情報の受信に失敗しました。ネットワーク接続を確認してください。", "⚠️");
-        });
+    // Function to handle storage event
+    function handleStorageEvent(event) {
+        if (!isHost && event.key === localStorageKey) {
+            const data = JSON.parse(event.newValue);
+            log("ローカルストレージからホストの状態を受信しました。");
+            syncListener(data);
+        }
     }
 
     // Sync Logic
@@ -311,6 +235,7 @@
         modeSelection.classList.add('hidden');
         hostContent.classList.remove('hidden');
         musicPlayer.src = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3"; // Default track
+        musicPlayer.play();
         showDialog("あなたはホストとして開始しました。音楽を選択して再生してください。", "👑");
         log("ホストモードを開始しました。");
     });
@@ -319,7 +244,6 @@
         isHost = false;
         modeSelection.classList.add('hidden');
         listenerContent.classList.remove('hidden');
-        listenForHostChanges();
         showDialog("あなたはリスナーとして参加しました。ホストの音楽を待ちます。", "🎧");
         log("リスナーモードを開始しました。");
     });
@@ -388,6 +312,15 @@
     }, 2000); // Update every 2 seconds
 
     dialogOkBtn.addEventListener('click', hideDialog);
+
+    // Initial setup
+    const appId = "my-unique-app-id";
+    const userId = "my-unique-user-id";
+    appIdEl.textContent = appId;
+    userIdEl.textContent = userId;
+    
+    // Add event listener for storage changes
+    window.addEventListener('storage', handleStorageEvent);
 
 </script>
 </body>
