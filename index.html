@@ -127,6 +127,7 @@
                 <p id="connectionStatus" class="text-center font-medium">
                     接続していません
                 </p>
+                <p id="delayStatus" class="text-center text-sm text-gray-500 mt-2 hidden"></p>
             </div>
 
             <!-- ファイル入力セクション (ホストのみ) -->
@@ -285,6 +286,7 @@
             const audioPlayer = document.getElementById('audioPlayer');
             const clientPlaybackStatus = document.getElementById('clientPlaybackStatus');
             const connectionStatus = document.getElementById('connectionStatus');
+            const delayStatus = document.getElementById('delayStatus');
             const disconnectButton = document.getElementById('disconnectButton');
             
             const hostSection = document.getElementById('hostSection');
@@ -342,7 +344,7 @@
             let totalFileSize = 0;
             let receivedSize = 0;
             let isTransferring = false; // 転送中かどうかのフラグ
-            let syncInterval = null;
+            let estimatedDelay = 0; // 推定遅延時間 (ms)
             
             // ホスト側のファイル転送用変数
             let hostBase64Data = '';
@@ -479,8 +481,6 @@
                         connectionStatus.textContent = '接続済み';
                         disconnectButton.disabled = false;
                         if(isHost) {
-                            playButton.disabled = false;
-                            pauseButton.disabled = false;
                             showToast('参加者と接続しました。音楽を再生してください。');
                             hostSection.classList.add('hidden');
                         } else {
@@ -523,7 +523,15 @@
 
                 // ホスト側でデータチャネルを作成
                 dataChannel = peerConnection.createDataChannel('audio-sync');
-                dataChannel.onopen = () => { console.log('Data Channel is open!'); };
+                dataChannel.onopen = () => { 
+                    console.log('Data Channel is open!'); 
+                    if (isHost) {
+                        // 接続確立後、遅延測定を開始
+                        delayStatus.classList.remove('hidden');
+                        delayStatus.textContent = '遅延を測定中...';
+                        dataChannel.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+                    }
+                };
                 dataChannel.onmessage = async (event) => {
                     const message = JSON.parse(event.data);
                     
@@ -556,6 +564,15 @@
                     } else if (message.type === 'clientReady') {
                         // 参加者からの「再生準備完了」通知を受信
                         showToast("参加者が再生準備を完了しました。再生を開始してください。");
+                    } else if (message.type === 'pong') {
+                        // 参加者からの応答を受信し、遅延を計算
+                        const now = Date.now();
+                        const rtt = now - message.host_timestamp;
+                        estimatedDelay = Math.floor(rtt / 2);
+                        delayStatus.textContent = `推定遅延: ${estimatedDelay}ms`;
+                        playButton.disabled = false;
+                        pauseButton.disabled = false;
+                        showToast(`遅延測定が完了しました。推定遅延: ${estimatedDelay}ms`);
                     }
                 };
                 dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
@@ -581,11 +598,6 @@
                     let receivedChunks = [];
                     dataChannel.onopen = () => {
                         console.log('Data Channel is open!');
-                        // クライアント側からファイルの転送をリクエスト
-                        if(isConnected) {
-                             dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
-                             progressBarContainer.classList.remove('hidden');
-                        }
                     };
                     dataChannel.onmessage = async (event) => {
                         const message = JSON.parse(event.data);
@@ -629,25 +641,26 @@
                         } else if (message.type === 'sync') {
                             // 参加者はホストのコマンドをリッスン
                             if (message.action === 'play') {
-                                // まだ再生していなければ、再生を開始
-                                if (audioPlayer.paused) {
+                                // 遅延を計算して再生をスケジュール
+                                const delay = message.start_timestamp - Date.now();
+                                if (delay > 0) {
+                                    setTimeout(() => audioPlayer.play(), delay);
+                                    clientPlaybackStatus.textContent = `再生をスケジュール中 (${delay}ms)...`;
+                                } else {
                                     audioPlayer.play();
-                                }
-                                clientPlaybackStatus.textContent = '再生中';
-                                
-                                // 遅延を考慮して同期時間を計算
-                                const delay = (Date.now() - message.timestamp) / 1000;
-                                const syncedTime = message.time + delay;
-                                const timeDifference = Math.abs(audioPlayer.currentTime - syncedTime);
-                                
-                                // 0.2秒以上のズレがあれば補正
-                                if (timeDifference > 0.2) { 
-                                    audioPlayer.currentTime = syncedTime;
+                                    clientPlaybackStatus.textContent = '再生中';
                                 }
                             } else if (message.action === 'pause') {
                                 audioPlayer.pause();
                                 clientPlaybackStatus.textContent = '一時停止中';
                             }
+                        } else if (message.type === 'ping') {
+                            // ホストからのpingを受信し、pongを返す
+                            const host_timestamp = message.timestamp;
+                            dataChannel.send(JSON.stringify({
+                                type: 'pong',
+                                host_timestamp: host_timestamp
+                            }));
                         }
                     };
                     dataChannel.onclose = () => {
@@ -657,28 +670,13 @@
                 };
             });
             
-            // 定期的な同期を送信する関数
-            function startPeriodicSync() {
-                if (syncInterval) clearInterval(syncInterval);
-                syncInterval = setInterval(() => {
-                    if (dataChannel && dataChannel.readyState === 'open' && !audioPlayer.paused) {
-                        dataChannel.send(JSON.stringify({
-                            type: 'sync',
-                            action: 'play',
-                            time: audioPlayer.currentTime,
-                            timestamp: Date.now()
-                        }));
-                    }
-                }, 200); // 0.2秒ごとに同期メッセージを送信
-            }
-
             // ホストの再生ボタンのイベントリスナー
             playButton.addEventListener('click', () => {
                 if (isConnected && dataChannel && dataChannel.readyState === 'open' && !isTransferring && fileData) {
+                    const startTimestamp = Date.now() + estimatedDelay;
                     audioPlayer.play();
-                    startPeriodicSync();
                     // 参加者への再生指示を送信
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: audioPlayer.currentTime, timestamp: Date.now() }));
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', start_timestamp: startTimestamp }));
                 } else if (isTransferring) {
                     showToast('ファイル転送中です。完了までお待ちください。');
                 } else if (!fileData) {
@@ -690,9 +688,7 @@
             pauseButton.addEventListener('click', () => {
                 if (isConnected && dataChannel && dataChannel.readyState === 'open') {
                     audioPlayer.pause();
-                    if (syncInterval) clearInterval(syncInterval);
-                    const time = audioPlayer.currentTime;
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause' }));
                 }
             });
 
@@ -724,8 +720,8 @@
                         audioPlayer.src = URL.createObjectURL(file);
                         audioPlayer.classList.remove('hidden');
                         hostPlaybackControls.classList.remove('hidden');
-                        playButton.disabled = false;
-                        pauseButton.disabled = false;
+                        playButton.disabled = true;
+                        pauseButton.disabled = true;
                     };
                     reader.readAsDataURL(file);
                 }
@@ -736,7 +732,6 @@
                 if (peerConnection) {
                     peerConnection.close();
                 }
-                if (syncInterval) clearInterval(syncInterval);
                 stopScanner(hostScanner);
                 stopScanner(clientScanner);
                 window.location.reload();
