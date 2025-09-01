@@ -68,6 +68,18 @@
             white-space: pre-wrap;
             position: relative;
         }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e2e8f0;
+            border-radius: 0.5rem;
+            height: 1.5rem;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #4f46e5;
+            transition: width 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -110,6 +122,15 @@
             </div>
             
             <audio id="audioPlayer" class="w-full hidden rounded-lg"></audio>
+            
+            <!-- プログレスバー -->
+            <div id="progressBarContainer" class="hidden">
+                <p class="text-sm text-center text-gray-600 mb-2">ファイル受信中...</p>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
+                </div>
+            </div>
+
             <div id="clientPlaybackStatus" class="hidden text-center text-gray-600 font-medium">
                 ホストが再生を開始するのを待っています...
             </div>
@@ -261,6 +282,8 @@
             const createAnswerWithHostCodeButton = document.getElementById('createAnswerWithHostCodeButton');
             const clientCodeInput = document.getElementById('clientCode');
             const copyClientCodeButton = document.getElementById('copyClientCodeButton');
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            const progressBar = document.getElementById('progressBar');
 
             const messageModal = document.getElementById('messageModal');
             const modalTitle = document.getElementById('modalTitle');
@@ -284,7 +307,8 @@
             let isConnected = false;
             let hostScanner = null;
             let clientScanner = null;
-            let offerSdp = null;
+            let totalFileSize = 0;
+            let receivedSize = 0;
 
             /**
              * カスタムモーダルを表示する関数
@@ -358,7 +382,7 @@
                     if (peerConnection.iceGatheringState === 'complete') {
                         console.log('ICE gathering complete');
                         if (isHost) {
-                            offerSdp = JSON.stringify(peerConnection.localDescription);
+                            const offerSdp = JSON.stringify(peerConnection.localDescription);
                             const qr = qrcode(0, 'L');
                             qr.addData(offerSdp);
                             qr.make();
@@ -441,6 +465,7 @@
                             // メッセージサイズの上限を避けるためにデータをチャンクに分割
                             const chunkSize = 16 * 1024; // 16KB
                             const base64Data = fileData.split(',')[1];
+                            totalFileSize = base64Data.length;
                             for (let i = 0; i < base64Data.length; i += chunkSize) {
                                 dataChannel.send(JSON.stringify({
                                     type: 'audio_chunk',
@@ -480,13 +505,20 @@
                         // クライアント側からファイルの転送をリクエスト
                         if(isConnected) {
                              dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
+                             progressBarContainer.classList.remove('hidden');
                         }
                     };
                     dataChannel.onmessage = async (event) => {
                         const message = JSON.parse(event.data);
                         if (message.type === 'audio_chunk') {
                             receivedChunks.push(message.chunk);
+                            receivedSize += message.chunk.length;
+                            const progress = (receivedSize / totalFileSize) * 100;
+                            progressBar.style.width = `${progress}%`;
+
                             if (message.isLast) {
+                                progressBarContainer.classList.add('hidden');
+                                receivedSize = 0;
                                 const base64Data = receivedChunks.join('');
                                 const mimeType = message.mimeType;
                                 fileData = `data:${mimeType};base64,${base64Data}`;
@@ -509,6 +541,8 @@
                                 audioPlayer.pause();
                                 clientPlaybackStatus.textContent = '一時停止中';
                             }
+                        } else if (message.type === 'fileSize') {
+                             totalFileSize = message.size;
                         }
                     };
                     dataChannel.onclose = () => {
@@ -543,6 +577,10 @@
                     reader.onload = (event) => {
                         fileData = event.target.result;
                         fileMimeType = file.type;
+                        // ホストはファイルサイズを参加者に送信
+                        if (dataChannel && dataChannel.readyState === 'open') {
+                            dataChannel.send(JSON.stringify({ type: 'fileSize', size: fileData.split(',')[1].length }));
+                        }
                         fileInfoDiv.classList.remove('hidden');
                         fileNameSpan.textContent = file.name;
                         audioPlayer.src = URL.createObjectURL(file);
