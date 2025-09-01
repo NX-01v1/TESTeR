@@ -327,7 +327,7 @@
     // Listener Mute Button
     listenerMuteBtn.addEventListener('click', () => {
         isListenerMuted = !isListenerMuted;
-        listenerPlayer.volume = isListenerMuted ? 0 : 1;
+        listenerPlayer.muted = isListenerMuted;
         listenerMuteBtn.textContent = isListenerMuted ? 'ミュート解除' : 'ミュート';
         log(`リスナーが音楽を${isListenerMuted ? 'ミュート' : 'ミュート解除'}しました。`);
     });
@@ -387,7 +387,7 @@
     
     muteBtn.addEventListener('click', () => {
         isMuted = !isMuted;
-        musicPlayer.volume = isMuted ? 0 : 1;
+        musicPlayer.muted = isMuted;
         muteBtn.textContent = isMuted ? 'ミュート解除' : 'ミュート';
         log(`ホストが音楽を${isMuted ? 'ミュート' : 'ミュート解除'}しました。`);
     });
