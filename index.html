@@ -3,129 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AC6 ビルドビューア</title>
+    <title>画面ミラーリングアプリ</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5;
-        }
-        .container {
-            max-width: 960px;
-        }
-        .card {
-            background-color: #ffffff;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .header {
-            background-color: #1a202c;
-            color: #ffffff;
-            padding: 1rem;
-            border-top-left-radius: 0.5rem;
-            border-top-right-radius: 0.5rem;
-        }
-        .part-item {
+            background-color: #f3f4f6;
             display: flex;
-            justify-content: space-between;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .part-item:last-child {
-            border-bottom: none;
-        }
-        .part-name {
-            font-weight: 600;
-        }
-        .part-stats {
-            text-align: right;
-        }
-        /* Loading spinner styles */
-        .loader {
-            border: 4px solid #f3f3f3; /* Light grey */
-            border-top: 4px solid #3498db; /* Blue */
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 640px) {
-            .container {
-                padding: 1rem;
-            }
-            .part-item {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .part-stats {
-                text-align: left;
-                margin-top: 0.25rem;
-            }
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #1f2937;
         }
     </style>
 </head>
-<body class="bg-gray-100 p-4 min-h-screen flex items-center justify-center">
-    <div class="container mx-auto">
-        <div class="card p-6">
-            <div class="header text-center mb-6 rounded-t-lg">
-                <h1 class="text-3xl font-bold">AC6 ビルドビューア</h1>
-            </div>
+<body class="bg-gray-100 p-4">
 
-            <div class="mb-4">
-                <label for="build-url" class="block text-gray-700 text-sm font-bold mb-2">
-                    ビルドURLを入力してください:
-                </label>
-                <div class="flex">
-                    <input type="text" id="build-url" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="例: https://matteosal.github.io/ac6-advanced-garage/?build=...">
-                    <button id="load-build-button" class="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline whitespace-nowrap">
-                        読み込む
-                    </button>
-                </div>
-            </div>
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl text-center">
+        <!-- アプリケーションのタイトル -->
+        <h1 class="text-3xl font-bold mb-6">画面ミラーリング</h1>
 
-            <div id="loading-indicator" class="flex items-center justify-center py-4 hidden">
-                <div class="loader"></div>
-                <span class="text-gray-700">読み込み中...</span>
-            </div>
+        <!-- ローカルビデオ要素 (非表示) -->
+        <video id="localVideo" class="hidden"></video>
+        <!-- リモートビデオ要素 (リモート画面を表示) -->
+        <video id="remoteVideo" class="w-full rounded-lg mb-6 shadow-md" autoplay playsinline></video>
 
-            <div id="build-display" class="space-y-4">
-                <div class="mb-4">
-                    <h2 class="text-xl font-bold text-gray-800 mb-2">構成詳細</h2>
-                    <div id="build-parts" class="border border-gray-200 rounded-md">
-                        <!-- Parts will be loaded here by JavaScript -->
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <h2 class="text-xl font-bold text-gray-800 mb-2">合計統計</h2>
-                    <div class="border border-gray-200 rounded-md p-4 bg-gray-50">
-                        <div class="flex justify-between font-semibold mb-1">
-                            <span>合計EN負荷:</span>
-                            <span id="total-en-load">0.0</span>
-                        </div>
-                        <div class="flex justify-between font-semibold">
-                            <span>合計重量:</span>
-                            <span id="total-weight">0.0</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="error-message" class="text-red-500 text-center mt-4 hidden">
-                ビルドの読み込み中にエラーが発生しました。URLを確認してください。
-            </div>
+        <!-- PeerID表示セクション -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2">あなたのID</h2>
+            <p id="myPeerId" class="text-2xl font-mono p-4 bg-gray-200 rounded-lg break-all"></p>
         </div>
+
+        <!-- 画面共有ボタン -->
+        <button id="startSharingBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 transform hover:scale-105 mb-4 w-full">
+            画面共有を開始
+        </button>
+
+        <!-- 共有停止ボタン -->
+        <button id="stopSharingBtn" class="bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 transform hover:scale-105 mb-6 w-full hidden">
+            共有を停止
+        </button>
+
+        <hr class="border-gray-300 mb-6">
+
+        <!-- 接続セクション -->
+        <div>
+            <h2 class="text-xl font-semibold mb-2">相手に接続</h2>
+            <p class="text-gray-600 mb-4">接続したい相手のIDを入力してください</p>
+            <input id="peerIdInput" type="text" placeholder="相手のIDを入力" class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button id="connectBtn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300 transform hover:scale-105 w-full">
+                接続
+            </button>
+        </div>
+
+        <!-- メッセージ表示エリア -->
+        <div id="message" class="mt-6 p-4 bg-yellow-100 text-yellow-800 rounded-lg hidden"></div>
+
     </div>
 
-    <script src="partsViewer.js"></script>
+    <script type="module">
+        const myPeerIdElement = document.getElementById('myPeerId');
+        const startSharingBtn = document.getElementById('startSharingBtn');
+        const stopSharingBtn = document.getElementById('stopSharingBtn');
+        const peerIdInput = document.getElementById('peerIdInput');
+        const connectBtn = document.getElementById('connectBtn');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const localVideo = document.getElementById('localVideo');
+        const messageElement = document.getElementById('message');
+
+        // メッセージを表示する関数
+        function showMessage(text, type = 'info') {
+            messageElement.textContent = text;
+            messageElement.className = `mt-6 p-4 rounded-lg block`;
+            if (type === 'error') {
+                messageElement.classList.add('bg-red-100', 'text-red-800');
+            } else {
+                messageElement.classList.add('bg-yellow-100', 'text-yellow-800');
+            }
+        }
+
+        // PeerJS初期化
+        const peer = new Peer();
+
+        peer.on('open', (id) => {
+            myPeerIdElement.textContent = id;
+            showMessage('IDが生成されました。接続を待機中です。');
+        });
+
+        // 画面共有ボタンのクリックイベント
+        startSharingBtn.addEventListener('click', async () => {
+            try {
+                // 画面共有のストリームを取得
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                localVideo.srcObject = stream;
+                
+                // 他のユーザーからの接続を待機
+                peer.on('call', (call) => {
+                    // 呼び出しに応答し、ローカルストリームを送信
+                    call.answer(stream);
+                    showMessage('接続が確立されました。');
+                    
+                    // リモートストリームを受信
+                    call.on('stream', (remoteStream) => {
+                        remoteVideo.srcObject = remoteStream;
+                    });
+                });
+
+                // UIの更新
+                startSharingBtn.classList.add('hidden');
+                stopSharingBtn.classList.remove('hidden');
+                showMessage('画面共有を開始しました。');
+            } catch (err) {
+                console.error("画面共有の取得エラー:", err);
+                showMessage('画面共有を開始できませんでした。ブラウザの権限を確認してください。', 'error');
+            }
+        });
+
+        // 共有停止ボタンのクリックイベント
+        stopSharingBtn.addEventListener('click', () => {
+            const tracks = localVideo.srcObject.getTracks();
+            tracks.forEach(track => track.stop());
+            localVideo.srcObject = null;
+            remoteVideo.srcObject = null;
+            
+            // UIの更新
+            startSharingBtn.classList.remove('hidden');
+            stopSharingBtn.classList.add('hidden');
+            messageElement.classList.add('hidden');
+        });
+
+        // 接続ボタンのクリックイベント
+        connectBtn.addEventListener('click', () => {
+            const remotePeerId = peerIdInput.value;
+            if (remotePeerId) {
+                // 相手に接続要求を送信
+                const call = peer.call(remotePeerId, localVideo.srcObject);
+                showMessage('接続中です...');
+
+                call.on('stream', (remoteStream) => {
+                    remoteVideo.srcObject = remoteStream;
+                    showMessage('接続が確立されました。');
+                });
+                
+                call.on('close', () => {
+                    showMessage('接続が終了しました。');
+                });
+
+                call.on('error', (err) => {
+                    console.error("接続エラー:", err);
+                    showMessage('接続に失敗しました。IDを確認してください。', 'error');
+                });
+            } else {
+                showMessage('相手のIDを入力してください。', 'error');
+            }
+        });
+    </script>
 </body>
 </html>
