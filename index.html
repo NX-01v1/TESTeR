@@ -341,7 +341,7 @@
             let clientScanner = null;
             let totalFileSize = 0;
             let receivedSize = 0;
-            let isTransferring = false; // 転送中かどうかのフラグを追加
+            let isTransferring = false; // 転送中かどうかのフラグ
 
             /**
              * トースト通知を表示する関数
@@ -491,7 +491,6 @@
                     // 参加者からファイル転送リクエストを受信した場合
                     if (message.type === 'requestAudio') {
                         if (fileData) {
-                            showToast('参加者に音楽ファイルを送信しています。');
                             isTransferring = true;
                             
                             // データのチャンク化
@@ -514,6 +513,10 @@
                                     chunk: base64Data.slice(i, i + chunkSize),
                                     isLast: (i + chunkSize) >= base64Data.length
                                 }));
+                                // 最後のチャンクを送信した後にフラグをリセット
+                                if ((i + chunkSize) >= base64Data.length) {
+                                     isTransferring = false;
+                                }
                             }
                         } else {
                             showToast('エラー: 音楽ファイルを選択してください。');
@@ -614,13 +617,15 @@
             
             // ホストの再生・一時停止ボタンのイベントリスナーを設定
             playButton.addEventListener('click', () => {
-                // ファイル転送が完了していることを確認
-                if (isConnected && dataChannel && dataChannel.readyState === 'open' && !isTransferring) {
+                // ファイルが選択され、転送が完了していることを確認
+                if (isConnected && dataChannel && dataChannel.readyState === 'open' && !isTransferring && !audioPlayer.classList.contains('hidden')) {
                     const time = audioPlayer.currentTime;
                     // 参加者への再生指示を送信
                     dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
                 } else if (isTransferring) {
                     showToast('ファイル転送中です。完了までお待ちください。');
+                } else if (audioPlayer.classList.contains('hidden')) {
+                     showToast('音楽ファイルを選択してください。');
                 }
             });
 
