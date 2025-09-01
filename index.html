@@ -61,6 +61,12 @@
 </head>
 <body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
 
+<!-- Console Section (Moved to the top to be visible on any screen) -->
+<div class="fixed bottom-0 left-0 w-full card p-4 z-60">
+    <h2 class="text-xl font-bold mb-2 text-green-300">コンソール</h2>
+    <div id="app-console" class="bg-gray-700 text-green-300 p-2 rounded-md h-32 overflow-y-scroll text-sm font-mono"></div>
+</div>
+
 <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-center z-50">
     <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500"></div>
     <p class="mt-4 text-white text-lg font-semibold">初期化中...</p>
@@ -106,12 +112,6 @@
     </div>
 </div>
 
-<!-- Console Section -->
-<div class="fixed bottom-0 left-0 w-full card p-4 z-40">
-    <h2 class="text-xl font-bold mb-2 text-green-500">コンソール</h2>
-    <div id="app-console" class="bg-gray-800 text-gray-300 p-2 rounded-md h-32 overflow-y-scroll text-sm font-mono"></div>
-</div>
-
 <!-- Custom Dialog Modal -->
 <div id="dialog-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
     <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm card">
@@ -132,11 +132,6 @@
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-    // Firebase Initialization
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
 
     // DOM Elements
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -182,35 +177,51 @@
     function hideDialog() {
         dialogModal.classList.add('hidden');
     }
-    
-    // Auth State Listener
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            userId = user.uid;
-            log('User signed in with UID: ' + userId);
-            appIdEl.textContent = appId;
-            userIdEl.textContent = userId;
-        } else {
-            log('No user signed in. Attempting anonymous sign-in...');
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                    log('Signed in with custom token.');
-                } else {
-                    await signInAnonymously(auth);
-                    log('Signed in anonymously.');
+
+    // Firebase Initialization
+    let app, db, auth;
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+        log("Firebaseの初期化に成功しました。");
+
+        // Auth State Listener
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                log('User signed in with UID: ' + userId);
+                appIdEl.textContent = appId;
+                userIdEl.textContent = userId;
+            } else {
+                log('No user signed in. Attempting anonymous sign-in...');
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        log('Signed in with custom token.');
+                    } else {
+                        await signInAnonymously(auth);
+                        log('Signed in anonymously.');
+                    }
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    log("認証に失敗しました: " + error.message);
+                    showDialog("認証に失敗しました。ページをリロードしてください。", "⚠️");
                 }
-            } catch (error) {
-                console.error("Authentication failed:", error);
-                log("認証に失敗しました: " + error.message);
-                showDialog("認証に失敗しました。ページをリロードしてください。", "⚠️");
             }
-        }
-        // Always hide loading overlay and show content after the initial auth state check,
-        // regardless of success or failure.
+            // Always hide loading overlay and show content after the initial auth state check,
+            // regardless of success or failure.
+            loadingOverlay.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+        });
+
+    } catch (error) {
+        console.error("Firebase initialization failed:", error);
+        log("Firebaseの初期化に失敗しました: " + error.message);
+        showDialog("Firebaseの初期化に失敗しました。ページをリロードしてください。", "⚠️");
         loadingOverlay.classList.add('hidden');
         mainContent.classList.remove('hidden');
-    });
+    }
 
     // Firestore Functions
     const getDocRef = (path) => doc(db, path);
