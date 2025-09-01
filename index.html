@@ -187,28 +187,37 @@
 
                 // 認証状態の変更を監視
                 onAuthStateChanged(auth, async (user) => {
+                    // 認証が完了したら、ローディングを非表示にする
+                    loadingOverlay.style.display = 'none';
+
                     if (user) {
                         // 認証成功時
                         userId = user.uid;
                         userIdValueDisplay.textContent = userId;
                         sessionIdInput.value = userId; // ホスト用として初期値を設定
                         isReady = true;
-                        loadingOverlay.style.display = 'none'; // 認証成功時にローディングを非表示にする
                     } else {
-                        // 認証されていない場合、サインインを試行
+                        // 認証されていない場合、匿名認証を試行
                         try {
-                             if (initialAuthToken) {
-                                 await signInWithCustomToken(auth, initialAuthToken);
-                             } else {
-                                 await signInAnonymously(auth);
-                             }
+                             await signInAnonymously(auth);
                         } catch (error) {
                              console.error("認証エラー:", error);
                              showModal("認証に失敗しました。ページをリロードしてください。");
-                             loadingOverlay.style.display = 'none'; // 認証失敗時にもローディングを非表示にする
                         }
                     }
                 });
+
+                 // 初回に認証を試行
+                 if (initialAuthToken) {
+                    signInWithCustomToken(auth, initialAuthToken).catch(e => {
+                         console.error("カスタムトークン認証エラー:", e);
+                         signInAnonymously(auth); // 失敗したら匿名認証に切り替える
+                    });
+                 } else {
+                    signInAnonymously(auth);
+                 }
+
+
             } catch (error) {
                 console.error("Firebaseの初期化に失敗しました:", error);
                 showModal("アプリケーションの初期化に失敗しました。");
@@ -219,17 +228,18 @@
 
         // YouTubeのURLから動画IDを抽出
         function getVideoId(url) {
-            const urlObj = new URL(url);
-            const params = new URLSearchParams(urlObj.search);
-            const videoId = params.get('v');
-            if (videoId) {
-                return videoId;
+            try {
+                const urlObj = new URL(url);
+                const params = new URLSearchParams(urlObj.search);
+                const videoId = params.get('v');
+                if (videoId) {
+                    return videoId;
+                }
+            } catch (e) {
+                // URLが無効な場合は何もしない
             }
-            const path = urlObj.pathname.split('/');
-            if (path.length > 1 && path[1] === 'watch') {
-                 return path[path.indexOf('watch') + 1];
-            }
-            return null;
+            // URL形式ではない場合は、直接動画IDとして扱う
+            return url.length === 11 ? url : null;
         }
 
         // ホストとして開始
@@ -247,7 +257,7 @@
             const sessionId = userId;
             const videoId = getVideoId(audioUrlInput.value);
             if (!videoId) {
-                showModal("無効なYouTube URLです。正しいURLを入力してください。");
+                showModal("無効なYouTube URLまたは動画IDです。正しい形式で入力してください。");
                 return;
             }
 
@@ -262,7 +272,10 @@
                 });
                 
                 // YouTubeプレイヤーを初期化
-                if (!player) {
+                if (!player || player.getVideoData().video_id !== videoId) {
+                    if (player) {
+                       player.destroy();
+                    }
                     player = new YT.Player('youtube-player', {
                         videoId: videoId,
                         playerVars: {
@@ -319,6 +332,9 @@
 
                     // YouTubeプレイヤーを初期化または動画をロード
                     if (!player || player.getVideoData().video_id !== data.videoId) {
+                         if (player) {
+                            player.destroy();
+                         }
                         player = new YT.Player('youtube-player', {
                              videoId: data.videoId,
                              playerVars: {
@@ -376,7 +392,9 @@
             }
             
             // シークバーを同期
-            seekBar.value = data.currentTime;
+            if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
+               seekBar.value = data.currentTime;
+            }
             updateTimeDisplay();
         }
 
@@ -394,7 +412,7 @@
                  if (isHost) {
                      player.seekTo(seekBar.value, true);
                      const sessionDocRef = getSessionDocRef(userId);
-                     setDoc(sessionDocRef, { currentTime: seekBar.value, lastUpdateTime: Date.now() }, { merge: true }).catch(console.error);
+                     setDoc(sessionDocRef, { currentTime: parseFloat(seekBar.value), lastUpdateTime: Date.now() }, { merge: true }).catch(console.error);
                  }
             });
 
