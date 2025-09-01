@@ -115,9 +115,16 @@
         </p>
 
         <!-- ロール選択セクション -->
-        <div id="roleSelection" class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-            <button id="startHostButton" class="flex-1 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">ホストとして始める</button>
-            <button id="startClientButton" class="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">参加者として参加</button>
+        <div id="roleSelection" class="space-y-4">
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <button id="startHostButton" class="flex-1 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">ホストとして始める</button>
+                <button id="startClientButton" class="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">参加者として参加</button>
+            </div>
+            <!-- デバッグ用ボタン -->
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-4">
+                <button id="debugHostButton" class="flex-1 px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition">デバッグモード (ホスト)</button>
+                <button id="debugClientButton" class="flex-1 px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition">デバッグモード (参加者)</button>
+            </div>
         </div>
 
         <!-- メインアプリセクション (最初は非表示) -->
@@ -278,6 +285,8 @@
             const mainApp = document.getElementById('mainApp');
             const startHostButton = document.getElementById('startHostButton');
             const startClientButton = document.getElementById('startClientButton');
+            const debugHostButton = document.getElementById('debugHostButton'); // 追加
+            const debugClientButton = document.getElementById('debugClientButton'); // 追加
             
             const fileInput = document.getElementById('fileInput');
             const fileInputSection = document.getElementById('fileInputSection');
@@ -598,23 +607,19 @@
                     let receivedChunks = [];
                     dataChannel.onopen = () => {
                         console.log('Data Channel is open!');
+                        // 接続が確立したら、ホストに音楽ファイルの要求を送信
+                        dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
                     };
                     dataChannel.onmessage = async (event) => {
                         const message = JSON.parse(event.data);
-
-                        if (message.type === 'ping') {
-                            // ホストからのpingを受信し、pongを返す
-                            const host_timestamp = message.timestamp;
-                            dataChannel.send(JSON.stringify({
-                                type: 'pong',
-                                host_timestamp: host_timestamp
-                            }));
-                        } else if (message.type === 'fileSize') {
+                        if (message.type === 'fileSize') {
                             totalFileSize = message.size;
                             fileMimeType = message.mimeType;
                             receivedSize = 0; // 新しい転送のためにリセット
                             progressBar.style.width = '0%';
                             progressBarContainer.classList.remove('hidden');
+                            clientPlaybackStatus.classList.remove('hidden'); // ステータスを表示
+                            clientPlaybackStatus.textContent = 'ホストから音楽ファイルを受信中...';
                             showToast('ホストから音楽ファイルを受信中です...');
                         } else if (message.type === 'audio_chunk') {
                             receivedChunks.push(message.chunk);
@@ -622,9 +627,6 @@
                             const progress = (receivedSize / totalFileSize) * 100;
                             progressBar.style.width = `${progress}%`;
                             
-                            // 受信確認をホストに送信
-                            dataChannel.send(JSON.stringify({ type: 'chunk_received', index: message.index }));
-
                             if (message.isLast) {
                                 progressBarContainer.classList.add('hidden');
                                 receivedSize = 0;
@@ -634,13 +636,16 @@
                                 audioPlayer.classList.remove('hidden');
                                 fileInfoDiv.classList.remove('hidden');
                                 fileNameSpan.textContent = '受信したファイル';
-                                clientPlaybackStatus.classList.remove('hidden');
                                 showToast('ホストから音楽ファイルを受信しました。');
                                 
                                 // ファイル受信完了後、再生コントロールを表示
                                 clientPlaybackControls.classList.remove('hidden');
                                 clientReadyButton.disabled = false;
+                                clientPlaybackStatus.textContent = '再生準備が完了しました。';
                                 receivedChunks = [];
+                            } else {
+                                // 受信確認をホストに送信
+                                dataChannel.send(JSON.stringify({ type: 'chunk_received', index: message.index }));
                             }
                         } else if (message.type === 'sync') {
                             // 参加者はホストのコマンドをリッスン
@@ -884,6 +889,60 @@
                     showToast('エラー: ホストのコードを貼り付けてください。');
                 }
             });
+            
+            /**
+             * デバッグモードに移行する関数
+             * @param {'host' | 'client'} role - 移行するロール ('host' または 'client')
+             */
+            function enterDebugMode(role) {
+                isHost = (role === 'host');
+                
+                // UIをリセット
+                roleSelection.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                hostSection.classList.add('hidden');
+                clientSection.classList.add('hidden');
+                fileInputSection.classList.add('hidden');
+                hostPlaybackControls.classList.add('hidden');
+                clientPlaybackControls.classList.add('hidden');
+                progressBarContainer.classList.add('hidden');
+                clientPlaybackStatus.classList.add('hidden');
+
+                // 状態を「接続済み」に設定
+                isConnected = true;
+                connectionStatus.textContent = `デバッグモード (${role === 'host' ? 'ホスト' : '参加者'})`;
+                disconnectButton.disabled = false;
+
+                if (isHost) {
+                    fileInputSection.classList.remove('hidden');
+                    hostPlaybackControls.classList.remove('hidden');
+                    playButton.disabled = false;
+                    pauseButton.disabled = false;
+                    delayStatus.classList.remove('hidden');
+                    delayStatus.textContent = '推定遅延: 0ms (デバッグ)';
+                } else {
+                    clientPlaybackControls.classList.remove('hidden');
+                    clientReadyButton.disabled = false;
+                    fileInfoDiv.classList.remove('hidden');
+                    fileNameSpan.textContent = 'デバッグ用ファイル';
+                    audioPlayer.classList.remove('hidden');
+                    audioPlayer.src = 'data:audio/mp3;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='; // ダミーのオーディオデータ
+                    clientPlaybackStatus.classList.remove('hidden');
+                    clientPlaybackStatus.textContent = '再生準備完了';
+                }
+                
+                showToast(`デバッグモード (${role === 'host' ? 'ホスト' : '参加者'}) に移行しました。`);
+            }
+            
+            // デバッグボタンのイベントリスナー
+            debugHostButton.addEventListener('click', () => {
+                enterDebugMode('host');
+            });
+
+            debugClientButton.addEventListener('click', () => {
+                enterDebugMode('client');
+            });
+
 
             // ページ読み込み時にカメラデバイスを列挙
             getDevicesAndPopulateSelectors();
