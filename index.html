@@ -84,7 +84,10 @@
                 <p id="fileName" class="text-gray-800 break-words"></p>
             </div>
             
-            <audio id="audioPlayer" controls class="w-full hidden rounded-lg"></audio>
+            <audio id="audioPlayer" class="w-full hidden rounded-lg"></audio>
+            <div id="clientPlaybackStatus" class="hidden text-center text-gray-600 font-medium">
+                ホストが再生を開始するのを待っています...
+            </div>
 
             <!-- Control Buttons -->
             <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
@@ -171,6 +174,7 @@
             const fileInfoDiv = document.getElementById('fileInfo');
             const fileNameSpan = document.getElementById('fileName');
             const audioPlayer = document.getElementById('audioPlayer');
+            const clientPlaybackStatus = document.getElementById('clientPlaybackStatus');
             const connectionStatus = document.getElementById('connectionStatus');
             const sendDataButton = document.getElementById('sendDataButton');
             const disconnectButton = document.getElementById('disconnectButton');
@@ -343,16 +347,20 @@
                                 audioPlayer.classList.remove('hidden');
                                 fileInfoDiv.classList.remove('hidden');
                                 fileNameSpan.textContent = '受信したファイル';
+                                clientPlaybackStatus.classList.remove('hidden'); // Show status message
                                 showModal('ファイル受信', 'ホストから音楽ファイルを受信しました。');
                                 receivedChunks = [];
                             }
                         } else if (message.type === 'sync') {
+                            // Participant listens for host's commands
                             if (message.action === 'play') {
                                 audioPlayer.currentTime = message.time;
                                 audioPlayer.play();
+                                clientPlaybackStatus.textContent = '再生中';
                             } else if (message.action === 'pause') {
                                 audioPlayer.currentTime = message.time;
                                 audioPlayer.pause();
+                                clientPlaybackStatus.textContent = '一時停止中';
                             }
                         }
                     };
@@ -411,6 +419,7 @@
                         fileNameSpan.textContent = file.name;
                         audioPlayer.src = URL.createObjectURL(file);
                         audioPlayer.classList.remove('hidden');
+                        audioPlayer.controls = true; // Host shows controls
                     };
                     reader.readAsDataURL(file);
                 }
