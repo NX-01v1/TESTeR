@@ -3,314 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>同期音楽プレイヤー（Firebaseなし）</title>
+    <title>同期音楽プレーヤー</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #E0E0E0;
         }
-        .music-player-shadow {
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 6px 6px rgba(0, 0, 0, 0.2);
+        .container {
+            max-width: 900px;
         }
-        .seek-bar::-webkit-slider-thumb {
+        .card {
+            background-color: #1E1E1E;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        .btn-primary {
+            background-color: #1DB954;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #168a3f;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #424242;
+            border-radius: 5px;
+            outline: none;
+            transition: opacity .2s;
+        }
+        input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 16px;
-            height: 16px;
-            background: #4A90E2;
-            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            background: #1DB954;
             border-radius: 50%;
-            border: none;
-            box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.4);
-        }
-        .seek-bar::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            background: #4A90E2;
             cursor: pointer;
-            border-radius: 50%;
-            border: none;
         }
-        #youtube-player {
-            width: 100%;
-            height: 280px;
-            border-radius: 1.5rem; /* rounded-3xl */
-            overflow: hidden;
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #1DB954;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .text-gradient {
+            background: linear-gradient(90deg, #1DB954, #1ed760);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
 
-    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-center z-50">
-        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-        <div class="mt-4 text-white text-lg font-semibold">読み込み中...</div>
+<div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-center z-50">
+    <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-green-500"></div>
+    <p class="mt-4 text-white text-lg font-semibold">初期化中...</p>
+</div>
+
+<div id="main-content" class="w-full max-w-2xl mx-auto flex flex-col items-center justify-center gap-6 p-6 card hidden">
+    <h1 class="text-4xl sm:text-5xl font-extrabold text-center text-gradient mb-4">
+        同期音楽プレーヤー
+    </h1>
+
+    <!-- App ID and User ID Display -->
+    <div class="w-full text-sm sm:text-base text-gray-400 font-mono flex flex-col sm:flex-row justify-between items-center bg-gray-800 p-3 rounded-lg">
+        <div class="mb-2 sm:mb-0 sm:mr-4">アプリID: <span id="app-id"></span></div>
+        <div>ユーザーID: <span id="user-id"></span></div>
     </div>
 
-    <div class="bg-gray-800 music-player-shadow rounded-3xl p-8 max-w-lg w-full">
-        <!-- ヘッダーとユーザー情報 -->
-        <div class="mb-8 text-center">
-            <h1 class="text-3xl font-bold mb-2 text-blue-400">同期音楽プレイヤー</h1>
-            <p class="text-sm text-gray-400">URLを使って動画を共有・再生します。</p>
-        </div>
+    <!-- Mode Selection -->
+    <div id="mode-selection" class="w-full text-center flex flex-col sm:flex-row gap-4">
+        <button id="host-btn" class="flex-1 py-3 px-6 rounded-lg font-bold text-lg bg-green-600 hover:bg-green-700 transition duration-300 ease-in-out shadow-lg">ホストとして開始</button>
+        <button id="join-btn" class="flex-1 py-3 px-6 rounded-lg font-bold text-lg bg-blue-600 hover:bg-blue-700 transition duration-300 ease-in-out shadow-lg">リスナーとして参加</button>
+    </div>
 
-        <!-- 音楽プレイヤーとコントロール -->
-        <div class="flex flex-col items-center">
-            <!-- YouTube Player Container -->
-            <div id="youtube-player" class="mb-4 bg-gray-700 rounded-3xl"></div>
-
-            <div class="w-full flex justify-between items-center mb-4">
-                <span id="currentTimeDisplay" class="text-sm text-gray-400">00:00</span>
-                <span id="durationDisplay" class="text-sm text-gray-400">00:00</span>
+    <!-- Content for Host -->
+    <div id="host-content" class="w-full flex flex-col items-center hidden">
+        <p class="text-center text-gray-400 mb-4">このデバイスがホストになります。音楽を再生し、他のデバイスと同期します。</p>
+        <div class="w-full mb-4 card p-6 flex flex-col gap-4">
+            <h2 class="text-xl sm:text-2xl font-semibold mb-2 text-center">音楽を選択</h2>
+            <div class="flex flex-col gap-2">
+                <button class="bg-gray-700 hover:bg-gray-600 py-2 px-4 rounded transition duration-300" data-src="https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3">Kalimba.mp3</button>
+                <button class="bg-gray-700 hover:bg-gray-600 py-2 px-4 rounded transition duration-300" data-src="https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3">別の音楽（デモ用）</button>
             </div>
-            <input type="range" id="seek-bar" value="0" step="0.01" class="w-full h-2 rounded-lg bg-gray-700 appearance-none cursor-pointer mb-6 seek-bar">
-            
-            <div class="flex items-center justify-center space-x-6">
-                <button id="play-pause-btn" class="bg-blue-600 text-white rounded-full p-4 hover:bg-blue-500 transition-colors focus:outline-none focus:ring-4 focus:ring-blue-300">
-                    <svg id="play-icon" class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-                    </svg>
-                    <svg id="pause-icon" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 2a1 1 0 100 2h2a1 1 0 100-2h-2zm1 4a1 1 0 11-2 0 1 1 0 012 0zm-1 2a1 1 0 100 2h2a1 1 0 100-2h-2z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- 接続と設定 -->
-        <div class="mt-8 pt-6 border-t border-gray-700">
-            <h2 class="text-xl font-bold mb-4 text-center">セッション設定</h2>
-            
-            <div class="mb-4">
-                <label for="audio-url-input" class="block text-sm font-medium text-gray-400 mb-1">YouTubeのURLまたは動画ID</label>
-                <input type="text" id="audio-url-input" class="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例: https://music.youtube.com/watch?v=..." value="https://music.youtube.com/watch?v=Q-dO4jYwIzo">
-            </div>
-
-            <div class="flex space-x-4 mb-4">
-                <button id="generate-link-btn" class="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-green-500 transition-colors">共有リンクを生成</button>
-                <button id="copy-link-btn" class="flex-1 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-indigo-500 transition-colors">リンクをコピー</button>
-            </div>
-            
-            <div class="mb-4">
-                <label for="share-link-output" class="block text-sm font-medium text-gray-400 mb-1">生成された共有リンク</label>
-                <textarea id="share-link-output" readonly class="w-full p-3 bg-gray-700 text-gray-300 rounded-lg border border-gray-600 focus:outline-none text-sm break-all" rows="3"></textarea>
-            </div>
+            <audio id="music-player" class="w-full mt-4 rounded-lg" controls></audio>
         </div>
     </div>
 
-    <!-- モーダルウィンドウ（alertの代替）-->
-    <div id="modal-container" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
-        <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-center">
-            <p id="modal-message" class="text-white mb-4"></p>
-            <button id="modal-close-btn" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-500">OK</button>
+    <!-- Content for Listener -->
+    <div id="listener-content" class="w-full flex flex-col items-center hidden">
+        <p class="text-center text-gray-400 mb-4">ホストの再生状態に同期します。音楽を再生するにはホストが開始するまでお待ちください。</p>
+        <div class="w-full mb-4 card p-6 flex flex-col items-center">
+            <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-center">ホストの音楽を再生中</h2>
+            <audio id="listener-player" class="w-full rounded-lg" controls></audio>
         </div>
     </div>
+</div>
 
-    <script type="module">
-        // グローバル変数
-        let player;
-        let ytApiReady = false;
-        let isPlayerReady = false;
+<!-- Custom Dialog Modal -->
+<div id="dialog-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm card">
+        <div class="flex flex-col items-center justify-center">
+            <div id="dialog-icon" class="text-3xl mb-4"></div>
+            <p id="dialog-message" class="text-center text-lg mb-4"></p>
+            <button id="dialog-ok-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">OK</button>
+        </div>
+    </div>
+</div>
 
-        // DOM要素の取得
-        const playPauseBtn = document.getElementById('play-pause-btn');
-        const playIcon = document.getElementById('play-icon');
-        const pauseIcon = document.getElementById('pause-icon');
-        const seekBar = document.getElementById('seek-bar');
-        const currentTimeDisplay = document.getElementById('currentTimeDisplay');
-        const durationDisplay = document.getElementById('durationDisplay');
-        const audioUrlInput = document.getElementById('audio-url-input');
-        const generateLinkBtn = document.getElementById('generate-link-btn');
-        const copyLinkBtn = document.getElementById('copy-link-btn');
-        const shareLinkOutput = document.getElementById('share-link-output');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const modalContainer = document.getElementById('modal-container');
-        const modalMessage = document.getElementById('modal-message');
-        const modalCloseBtn = document.getElementById('modal-close-btn');
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // YouTube IFrame Player APIをロード
-        const tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    // Global variables for Firebase configuration. DO NOT modify these.
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // APIがロードされたときに呼び出される関数
-        window.onYouTubeIframeAPIReady = function() {
-            ytApiReady = true;
-            console.log("YouTube IFrame Player APIがロードされました。");
-            loadingOverlay.style.display = 'none';
-        };
+    // Firebase Initialization
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
 
-        // モーダルを表示する関数
-        function showModal(message) {
-            modalMessage.textContent = message;
-            modalContainer.style.display = 'flex';
-        }
+    // DOM Elements
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const mainContent = document.getElementById('main-content');
+    const appIdEl = document.getElementById('app-id');
+    const userIdEl = document.getElementById('user-id');
+    const modeSelection = document.getElementById('mode-selection');
+    const hostBtn = document.getElementById('host-btn');
+    const joinBtn = document.getElementById('join-btn');
+    const hostContent = document.getElementById('host-content');
+    const listenerContent = document.getElementById('listener-content');
+    const musicPlayer = document.getElementById('music-player');
+    const listenerPlayer = document.getElementById('listener-player');
+    const musicButtons = document.querySelectorAll('#host-content button[data-src]');
+    const dialogModal = document.getElementById('dialog-modal');
+    const dialogMessage = document.getElementById('dialog-message');
+    const dialogOkBtn = document.getElementById('dialog-ok-btn');
+    const dialogIcon = document.getElementById('dialog-icon');
 
-        // モーダルを閉じる
-        modalCloseBtn.addEventListener('click', () => {
-            modalContainer.style.display = 'none';
-        });
+    // State Variables
+    let userId = null;
+    let isHost = false;
+    let isInitialized = false;
+    const syncThreshold = 0.5; // Sync if difference is more than 0.5 seconds
 
-        // YouTubeのURLから動画IDを抽出
-        function getVideoId(url) {
+    // Function to show custom dialog
+    function showDialog(message, icon = '🎵') {
+        dialogMessage.textContent = message;
+        dialogIcon.textContent = icon;
+        dialogModal.classList.remove('hidden');
+    }
+
+    // Function to hide custom dialog
+    function hideDialog() {
+        dialogModal.classList.add('hidden');
+    }
+    
+    // Auth State Listener
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            userId = user.uid;
+            console.log('User signed in with UID:', userId);
+            appIdEl.textContent = appId;
+            userIdEl.textContent = userId;
+            loadingOverlay.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            isInitialized = true;
+        } else {
+            console.log('No user signed in. Signing in anonymously...');
             try {
-                const urlObj = new URL(url);
-                const params = new URLSearchParams(urlObj.search);
-                const videoId = params.get('v');
-                if (videoId) {
-                    return videoId;
-                }
-            } catch (e) {
-                // URLが無効な場合は直接動画IDとして扱う
-            }
-            return url.length === 11 ? url : null;
-        }
-
-        // URLパラメータを読み込み、プレイヤーを初期化
-        function initializePlayerFromUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const videoId = urlParams.get('videoId');
-            const startTime = urlParams.get('start') ? parseFloat(urlParams.get('start')) : 0;
-
-            if (videoId) {
-                audioUrlInput.value = videoId;
-                if (ytApiReady) {
-                    createPlayer(videoId, startTime);
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    // APIがまだロードされていない場合、ロード後にプレイヤーを作成
-                    window.onYouTubeIframeAPIReady = () => {
-                        createPlayer(videoId, startTime);
-                    };
+                    await signInAnonymously(auth);
                 }
-            } else {
-                loadingOverlay.style.display = 'none';
+            } catch (error) {
+                console.error("Authentication failed:", error);
+                showDialog("認証に失敗しました。ページをリロードしてください。", "⚠️");
             }
         }
+    });
 
-        // プレイヤーを作成する関数
-        function createPlayer(videoId, startTime) {
-            if (player) {
-                player.destroy();
+    // Firestore Functions
+    const getDocRef = (path) => doc(db, path);
+    const getPublicDocRef = () => getDocRef(`/artifacts/${appId}/public/data/music-sync/host-state`);
+
+    async function updateHostState(state) {
+        if (!isHost) return;
+        try {
+            await setDoc(getPublicDocRef(), state);
+            console.log("Host state updated:", state);
+        } catch (e) {
+            console.error("Error updating host state: ", e);
+            showDialog("ホストの状態を更新できませんでした。ネットワーク接続を確認してください。", "⚠️");
+        }
+    }
+
+    function listenForHostChanges() {
+        console.log("Listening for host changes...");
+        onSnapshot(getPublicDocRef(), (doc) => {
+            if (doc.exists() && !isHost) {
+                const data = doc.data();
+                console.log("Received host state update:", data);
+                syncListener(data);
             }
-            player = new YT.Player('youtube-player', {
-                videoId: videoId,
-                playerVars: {
-                    'controls': 0,
-                    'disablekb': 1,
-                    'fs': 0,
-                    'modestbranding': 1,
-                    'rel': 0,
-                    'showinfo': 0,
-                    'start': startTime // URLから取得した開始時間
-                },
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
-                }
-            });
-            isPlayerReady = true;
+        }, (error) => {
+            console.error("Error listening for host changes:", error);
+            showDialog("同期情報の受信に失敗しました。ネットワーク接続を確認してください。", "⚠️");
+        });
+    }
+
+    // Sync Logic
+    function syncListener(state) {
+        if (!state || !state.isPlaying || !state.currentTime) {
+            listenerPlayer.pause();
+            return;
         }
 
-        // 共有リンクを生成
-        generateLinkBtn.addEventListener('click', () => {
-            const videoId = getVideoId(audioUrlInput.value);
-            if (!videoId) {
-                showModal("無効なYouTube URLまたは動画IDです。");
-                return;
-            }
-
-            const currentTime = player ? player.getCurrentTime() : 0;
-            const newUrl = `${window.location.origin}${window.location.pathname}?videoId=${videoId}&start=${currentTime}`;
-            shareLinkOutput.value = newUrl;
-        });
-
-        // リンクをクリップボードにコピー
-        copyLinkBtn.addEventListener('click', () => {
-            if (shareLinkOutput.value) {
-                navigator.clipboard.writeText(shareLinkOutput.value)
-                    .then(() => showModal("リンクをクリップボードにコピーしました！"))
-                    .catch(err => {
-                        console.error('コピーに失敗しました:', err);
-                        showModal("リンクのコピーに失敗しました。手動でコピーしてください。");
-                    });
-            } else {
-                showModal("まずリンクを生成してください。");
-            }
-        });
-
-        // YouTube Player Ready Event
-        function onPlayerReady(event) {
-            console.log("YouTube Player is ready.");
-            seekBar.max = player.getDuration();
-            durationDisplay.textContent = formatTime(player.getDuration());
-            
-            // シークバーの操作
-            seekBar.addEventListener('input', () => {
-                updateTimeDisplay();
-            });
-            seekBar.addEventListener('change', () => {
-                player.seekTo(parseFloat(seekBar.value), true);
-            });
-
-            // ホストとして再生を監視し、シークバーを更新
-            setInterval(() => {
-                if (player.getPlayerState() === YT.PlayerState.PLAYING) {
-                    seekBar.value = player.getCurrentTime();
-                    updateTimeDisplay();
-                }
-            }, 500);
+        const audioUrl = state.audioUrl || "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3";
+        if (listenerPlayer.src !== audioUrl) {
+            listenerPlayer.src = audioUrl;
+            listenerPlayer.load();
         }
         
-        // YouTube Player State Change Event
-        function onPlayerStateChange(event) {
-            if (event.data === YT.PlayerState.PLAYING) {
-                updatePlayPauseButton(true);
-            } else {
-                updatePlayPauseButton(false);
-            }
+        const now = Date.now();
+        const hostTimeAtUpdate = (state.currentTime + (now - state.timestamp) / 1000);
+        const timeDifference = Math.abs(listenerPlayer.currentTime - hostTimeAtUpdate);
+
+        if (timeDifference > syncThreshold) {
+            listenerPlayer.currentTime = hostTimeAtUpdate;
+            console.log(`Synced listener time. Difference was ${timeDifference.toFixed(2)}s.`);
         }
 
-        // 再生/一時停止ボタンの切り替え
-        function updatePlayPauseButton(isPlaying) {
-            if (isPlaying) {
-                playIcon.classList.add('hidden');
-                pauseIcon.classList.remove('hidden');
-            } else {
-                playIcon.classList.remove('hidden');
-                pauseIcon.classList.add('hidden');
-            }
+        if (state.isPlaying) {
+            listenerPlayer.play().catch(e => console.error("Play failed:", e));
+        } else {
+            listenerPlayer.pause();
         }
+    }
 
-        // 再生/一時停止ボタンのイベント
-        playPauseBtn.addEventListener('click', () => {
-            if (!isPlayerReady) {
-                showModal("まず動画のURLを入力してリンクを生成してください。");
-                return;
-            }
-            if (player.getPlayerState() === YT.PlayerState.PLAYING) {
-                player.pauseVideo();
-            } else {
-                player.playVideo();
-            }
+    // Event Listeners
+    hostBtn.addEventListener('click', () => {
+        isHost = true;
+        modeSelection.classList.add('hidden');
+        hostContent.classList.remove('hidden');
+        musicPlayer.src = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3"; // Default track
+        showDialog("あなたはホストとして開始しました。音楽を選択して再生してください。", "👑");
+    });
+
+    joinBtn.addEventListener('click', () => {
+        isHost = false;
+        modeSelection.classList.add('hidden');
+        listenerContent.classList.remove('hidden');
+        listenForHostChanges();
+        showDialog("あなたはリスナーとして参加しました。ホストの音楽を待ちます。", "🎧");
+    });
+
+    musicButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const audioSrc = button.getAttribute('data-src');
+            musicPlayer.src = audioSrc;
+            musicPlayer.play();
+            updateHostState({
+                isPlaying: true,
+                currentTime: musicPlayer.currentTime,
+                audioUrl: audioSrc,
+                timestamp: Date.now()
+            });
         });
+    });
 
-        // 時間表示のフォーマット
-        function formatTime(seconds) {
-            if (isNaN(seconds)) return "00:00";
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = Math.floor(seconds % 60);
-            return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+    musicPlayer.addEventListener('play', () => {
+        if (isHost) {
+            updateHostState({
+                isPlaying: true,
+                currentTime: musicPlayer.currentTime,
+                audioUrl: musicPlayer.src,
+                timestamp: Date.now()
+            });
         }
+    });
 
-        // 時間表示を更新
-        function updateTimeDisplay() {
-            currentTimeDisplay.textContent = formatTime(seekBar.value);
+    musicPlayer.addEventListener('pause', () => {
+        if (isHost) {
+            updateHostState({
+                isPlaying: false,
+                currentTime: musicPlayer.currentTime,
+                audioUrl: musicPlayer.src,
+                timestamp: Date.now()
+            });
         }
+    });
 
-        // ページロード時にURLからプレイヤーを初期化
-        window.onload = initializePlayerFromUrl;
-        
-    </script>
+    musicPlayer.addEventListener('seeked', () => {
+        if (isHost) {
+            updateHostState({
+                isPlaying: musicPlayer.paused ? false : true,
+                currentTime: musicPlayer.currentTime,
+                audioUrl: musicPlayer.src,
+                timestamp: Date.now()
+            });
+        }
+    });
+
+    // Periodically update host's timestamp to keep it fresh
+    setInterval(() => {
+        if (isHost && !musicPlayer.paused) {
+            updateHostState({
+                isPlaying: true,
+                currentTime: musicPlayer.currentTime,
+                audioUrl: musicPlayer.src,
+                timestamp: Date.now()
+            });
+        }
+    }, 2000); // Update every 2 seconds
+
+    dialogOkBtn.addEventListener('click', hideDialog);
+
+</script>
 </body>
 </html>
