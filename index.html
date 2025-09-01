@@ -170,6 +170,14 @@
                 </button>
             </div>
 
+            <!-- 参加者再生コントロール -->
+            <div id="clientPlaybackControls" class="hidden flex justify-center space-x-4">
+                <button id="clientPlayButton" disabled class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+            </div>
+
+
             <!-- 操作ボタン -->
             <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
                 <button id="disconnectButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
@@ -305,6 +313,10 @@
             const copyClientCodeButton = document.getElementById('copyClientCodeButton');
             const progressBarContainer = document.getElementById('progressBarContainer');
             const progressBar = document.getElementById('progressBar');
+            
+            // 追加されたUI要素
+            const clientPlaybackControls = document.getElementById('clientPlaybackControls');
+            const clientPlayButton = document.getElementById('clientPlayButton');
 
             // トースト通知のUI要素
             const toastContainer = document.getElementById('toastContainer');
@@ -563,13 +575,17 @@
                                 fileNameSpan.textContent = '受信したファイル';
                                 clientPlaybackStatus.classList.remove('hidden');
                                 showToast('ホストから音楽ファイルを受信しました。');
+                                
+                                // ファイル受信完了後、再生コントロールを表示
+                                clientPlaybackControls.classList.remove('hidden');
+                                clientPlayButton.disabled = false;
                                 receivedChunks = [];
                             }
                         } else if (message.type === 'sync') {
                             // 参加者はホストのコマンドをリッスン
+                            // ブラウザの自動再生ポリシーのため、play()は呼び出さない
                             if (message.action === 'play') {
                                 audioPlayer.currentTime = message.time;
-                                audioPlayer.play();
                                 clientPlaybackStatus.textContent = '再生中';
                             } else if (message.action === 'pause') {
                                 audioPlayer.currentTime = message.time;
@@ -600,6 +616,15 @@
                     const time = audioPlayer.currentTime;
                     dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
                 }
+            });
+
+            // 参加者側の再生ボタンのイベントリスナーを設定
+            clientPlayButton.addEventListener('click', () => {
+                // ユーザーの操作で再生を開始する
+                audioPlayer.play().catch(e => {
+                    console.error("Playback failed:", e);
+                    showToast("再生に失敗しました。");
+                });
             });
             
             // ファイル入力イベント
@@ -742,7 +767,7 @@
                         peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
                         showToast('参加者と接続しました！');
                     } catch (e) {
-                        showToast('エラー: 無効な接続コードです。');
+                                showToast('エラー: 無効な接続コードです。');
                         console.error('Failed to set remote answer from code:', e);
                     }
                 } else {
