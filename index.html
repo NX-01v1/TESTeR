@@ -175,6 +175,7 @@
 
     // State Variables
     let isHost = false;
+    let isListenerPlaying = false; // Add new state variable
     const syncThreshold = 0.5; // Sync if difference is more than 0.5 seconds
     const localStorageKey = 'music-sync-state';
 
@@ -232,6 +233,7 @@
     function syncListener(state) {
         if (!state || !state.isPlaying) {
             listenerPlayer.pause();
+            isListenerPlaying = false; // Reset state
             listenerAudioInfo.classList.add('hidden');
             listenerPlayBtn.classList.add('hidden');
             listenerStatusEl.textContent = "ホストが再生を停止しました。";
@@ -266,13 +268,15 @@
                 listenerDurationEl.textContent = formatTime(listenerPlayer.duration);
             }
         }
-
+        
         if (state.isPlaying) {
             // ホストが再生中の場合、リスナーに再生を促すボタンを表示
             listenerPlayBtn.classList.remove('hidden');
             listenerStatusEl.textContent = "ホストが再生を開始しました。再生ボタンを押してください。";
         } else {
+            // ホストが一時停止中の場合、プレイヤーを一時停止し、状態をリセット
             listenerPlayer.pause();
+            isListenerPlaying = false; // Reset state
             listenerPlayBtn.classList.add('hidden');
             listenerStatusEl.textContent = "ホストが一時停止しました。";
         }
@@ -306,6 +310,7 @@
     // Listener Play Button
     listenerPlayBtn.addEventListener('click', () => {
         listenerPlayer.play().then(() => {
+            isListenerPlaying = true; // Set state to indicate manual play
             listenerStatusEl.textContent = "ホストの音楽を再生中";
             listenerPlayBtn.classList.add('hidden');
             log("リスナーが再生ボタンを押しました。");
@@ -314,6 +319,19 @@
             log("再生に失敗しました: " + e.message);
             showDialog("再生に失敗しました。ユーザーの操作が必要です。", "⚠️");
         });
+    });
+    
+    // Add an event listener to listen for play/pause events from the host
+    listenerPlayer.addEventListener('play', () => {
+        if (isListenerPlaying) {
+             // If manually playing, do not pause on sync
+            const state = JSON.parse(localStorage.getItem(localStorageKey));
+            if (state && state.isPlaying) {
+                return;
+            }
+        }
+        listenerPlayer.pause();
+        isListenerPlaying = false;
     });
 
     musicButtons.forEach(button => {
