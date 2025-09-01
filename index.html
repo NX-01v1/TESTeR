@@ -130,7 +130,17 @@
 
     // Global variables for Firebase configuration. DO NOT modify these.
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    let firebaseConfig = {};
+    try {
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            firebaseConfig = JSON.parse(__firebase_config);
+        } else {
+            throw new Error('Firebase configuration variable not provided.');
+        }
+    } catch (e) {
+        console.error('Failed to parse Firebase configuration:', e);
+        firebaseConfig = {}; // Fallback to an empty object
+    }
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     // DOM Elements
@@ -181,8 +191,8 @@
     // Firebase Initialization
     let app, db, auth;
     try {
-        if (!firebaseConfig || !firebaseConfig.projectId) {
-            throw new Error('"projectId" not provided in firebase.initializeApp. Check your Firebase configuration.');
+        if (!firebaseConfig.projectId) {
+            throw new Error('"projectId" not provided in Firebase config.');
         }
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
