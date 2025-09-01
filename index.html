@@ -195,10 +195,13 @@
         // リモートトラックを受信
         peerConnection.ontrack = (event) => {
             player.srcObject = event.streams[0];
-            player.play();
+            
+            // ゲスト側でUIを切り替える
             musicSection.classList.remove('hidden');
             guestStatus.classList.add('hidden');
             setupSection.classList.add('hidden');
+
+            player.play();
         };
 
         // データチャンネルの接続を待機
