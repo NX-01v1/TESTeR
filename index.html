@@ -181,6 +181,9 @@
     // Firebase Initialization
     let app, db, auth;
     try {
+        if (!firebaseConfig.projectId) {
+            throw new Error('"projectId" not provided in firebase.initializeApp. Check your Firebase configuration.');
+        }
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
