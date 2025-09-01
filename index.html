@@ -343,6 +343,11 @@
             let receivedSize = 0;
             let isTransferring = false; // 転送中かどうかのフラグ
             let syncInterval = null;
+            
+            // ホスト側のファイル転送用変数
+            let hostBase64Data = '';
+            let hostChunkSize = 16 * 1024; // 16KB
+            let hostChunkIndex = 0;
 
             /**
              * トースト通知を表示する関数
@@ -392,6 +397,36 @@
                     scanner.stop().catch(err => {
                         console.error("Failed to stop scanner:", err);
                     });
+                }
+            }
+            
+            /**
+             * ホスト側で次のファイルチャンクを送信する関数
+             */
+            function sendNextChunk() {
+                if (!isTransferring) return;
+
+                const start = hostChunkIndex * hostChunkSize;
+                const end = Math.min(start + hostChunkSize, hostBase64Data.length);
+                const chunk = hostBase64Data.slice(start, end);
+                const isLast = (end === hostBase64Data.length);
+
+                if (dataChannel.readyState === 'open') {
+                    dataChannel.send(JSON.stringify({
+                        type: 'audio_chunk',
+                        chunk: chunk,
+                        index: hostChunkIndex,
+                        isLast: isLast
+                    }));
+                    
+                    if (isLast) {
+                        isTransferring = false;
+                        hostChunkIndex = 0; // 転送完了後、インデックスをリセット
+                        console.log("File transfer complete!");
+                        showToast('ファイル転送が完了しました。');
+                    } else {
+                        hostChunkIndex++;
+                    }
                 }
             }
 
@@ -491,42 +526,35 @@
                 dataChannel.onopen = () => { console.log('Data Channel is open!'); };
                 dataChannel.onmessage = async (event) => {
                     const message = JSON.parse(event.data);
-                    // 参加者からファイル転送リクエストを受信した場合
+                    
                     if (message.type === 'requestAudio') {
                         if (fileData) {
                             isTransferring = true;
-                            
-                            // データのチャンク化
-                            const base64Data = fileData.split(',')[1];
-                            const totalFileSize = base64Data.length;
+                            hostBase64Data = fileData.split(',')[1];
+                            const totalFileSize = hostBase64Data.length;
                             const mimeType = fileMimeType;
-                            const chunkSize = 16 * 1024; // 16KB
-
+                            hostChunkIndex = 0;
+                            
                             // まず総サイズとMIMEタイプを送信
                             dataChannel.send(JSON.stringify({
                                 type: 'fileSize',
                                 size: totalFileSize,
                                 mimeType: mimeType
                             }));
-
-                            // その後、ファイルのチャンクを送信
-                            for (let i = 0; i < base64Data.length; i += chunkSize) {
-                                dataChannel.send(JSON.stringify({
-                                    type: 'audio_chunk',
-                                    chunk: base64Data.slice(i, i + chunkSize),
-                                    isLast: (i + chunkSize) >= base64Data.length
-                                }));
-                                // 最後のチャンクを送信した後にフラグをリセット
-                                if ((i + chunkSize) >= base64Data.length) {
-                                     isTransferring = false;
-                                }
-                            }
+                            
+                            // 最初のチャンクを送信
+                            sendNextChunk();
+                            
                         } else {
                             showToast('エラー: 音楽ファイルを選択してください。');
                         }
+                    } else if (message.type === 'chunk_received') {
+                         // 参加者から次のチャンクの送信リクエストを受信
+                         if (isTransferring) {
+                            sendNextChunk();
+                         }
                     } else if (message.type === 'clientReady') {
                         // 参加者からの「再生準備完了」通知を受信
-                        // ブラウザの制約のため、ホスト側が手動で再生を開始する
                         showToast("参加者が再生準備を完了しました。再生を開始してください。");
                     }
                 };
@@ -575,6 +603,9 @@
                             receivedSize += message.chunk.length;
                             const progress = (receivedSize / totalFileSize) * 100;
                             progressBar.style.width = `${progress}%`;
+                            
+                            // 受信確認をホストに送信
+                            dataChannel.send(JSON.stringify({ type: 'chunk_received', index: message.index }));
 
                             if (message.isLast) {
                                 progressBarContainer.classList.add('hidden');
@@ -598,15 +629,21 @@
                         } else if (message.type === 'sync') {
                             // 参加者はホストのコマンドをリッスン
                             if (message.action === 'play') {
-                                // 遅延を考慮して再生時間を補正
+                                // まだ再生していなければ、再生を開始
+                                if (audioPlayer.paused) {
+                                    audioPlayer.play();
+                                }
+                                clientPlaybackStatus.textContent = '再生中';
+                                
+                                // 遅延を考慮して同期時間を計算
                                 const delay = (Date.now() - message.timestamp) / 1000;
                                 const syncedTime = message.time + delay;
                                 const timeDifference = Math.abs(audioPlayer.currentTime - syncedTime);
-                                if (timeDifference > 0.05) { // 0.05秒以上のズレがあれば補正
+                                
+                                // 0.2秒以上のズレがあれば補正
+                                if (timeDifference > 0.2) { 
                                     audioPlayer.currentTime = syncedTime;
                                 }
-                                audioPlayer.play(); // ホストからの指示で再生開始
-                                clientPlaybackStatus.textContent = '再生中';
                             } else if (message.action === 'pause') {
                                 audioPlayer.pause();
                                 clientPlaybackStatus.textContent = '一時停止中';
@@ -632,29 +669,20 @@
                             timestamp: Date.now()
                         }));
                     }
-                }, 1000); // 1秒ごとに同期メッセージを送信
+                }, 200); // 0.2秒ごとに同期メッセージを送信
             }
 
             // ホストの再生ボタンのイベントリスナー
             playButton.addEventListener('click', () => {
-                // ファイルが選択され、転送が完了していることを確認
-                if (isConnected && dataChannel && dataChannel.readyState === 'open' && !isTransferring && !audioPlayer.classList.contains('hidden')) {
-                    // 単に再生を開始する
+                if (isConnected && dataChannel && dataChannel.readyState === 'open' && !isTransferring && fileData) {
                     audioPlayer.play();
+                    startPeriodicSync();
+                    // 参加者への再生指示を送信
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: audioPlayer.currentTime, timestamp: Date.now() }));
                 } else if (isTransferring) {
                     showToast('ファイル転送中です。完了までお待ちください。');
-                } else if (audioPlayer.classList.contains('hidden')) {
-                     showToast('音楽ファイルを選択してください。');
-                }
-            });
-
-            // ホスト側：オーディオが実際に再生を開始したときのイベントリスナー
-            audioPlayer.addEventListener('play', () => {
-                if (isHost && dataChannel && dataChannel.readyState === 'open') {
-                    const time = audioPlayer.currentTime;
-                    // 参加者への再生指示を送信
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
-                    startPeriodicSync();
+                } else if (!fileData) {
+                    showToast('音楽ファイルを選択してください。');
                 }
             });
 
