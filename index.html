@@ -298,6 +298,21 @@
                 
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
+
+                // ホストのオーディオプレイヤーのイベントリスナーを設定
+                audioPlayer.addEventListener('play', () => {
+                    if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                        const time = audioPlayer.currentTime;
+                        dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
+                    }
+                });
+
+                audioPlayer.addEventListener('pause', () => {
+                    if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                        const time = audioPlayer.currentTime;
+                        dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
+                    }
+                });
             });
 
             // 参加者として参加
@@ -433,20 +448,6 @@
                 clientAnswerTextarea.select();
                 document.execCommand('copy');
                 showModal('コピー完了', '接続情報がクリップボードにコピーされました。');
-            });
-            
-            audioPlayer.addEventListener('play', () => {
-                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
-                    const time = audioPlayer.currentTime;
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
-                }
-            });
-
-            audioPlayer.addEventListener('pause', () => {
-                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
-                    const time = audioPlayer.currentTime;
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
-                }
             });
         });
     </script>
