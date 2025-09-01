@@ -174,7 +174,7 @@
             <!-- 参加者再生コントロール -->
             <div id="clientPlaybackControls" class="hidden flex justify-center space-x-4">
                 <button id="clientReadyButton" disabled class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    <!-- JavaScriptでテキストが設定されます -->
+                    再生準備完了
                 </button>
             </div>
 
@@ -639,13 +639,8 @@
                                 
                                 // ファイル受信完了後、再生コントロールを表示
                                 clientPlaybackControls.classList.remove('hidden');
-                                // 参加者側の再生準備ボタンのテキストと状態を設定
-                                clientReadyButton.textContent = '再生準備完了';
                                 clientReadyButton.disabled = false;
                                 receivedChunks = [];
-                                
-                                // ホストにファイルの受信完了を通知
-                                dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
                             }
                         } else if (message.type === 'sync') {
                             // 参加者はホストのコマンドをリッスン
@@ -699,18 +694,19 @@
                 // ブラウザの自動再生ポリシーを解除するため、一度再生してすぐに一時停止する
                 audioPlayer.play().then(() => {
                     audioPlayer.pause();
+                    
+                    // ホストに「再生準備ができました」と通知
+                    if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                        showToast("ホストの再生指示を待っています...");
+                        clientReadyButton.textContent = '待機中...';
+                        clientReadyButton.disabled = true;
+                        dataChannel.send(JSON.stringify({ type: 'clientReady' }));
+                    }
+
                 }).catch(e => {
                     console.error("Autoplay was prevented:", e);
                     showToast("エラー: ブラウザの自動再生がブロックされました。手動で再生を開始してください。");
                 });
-                
-                // ホストに「再生準備ができました」と通知
-                if (isConnected && dataChannel && dataChannel.readyState === 'open') {
-                    showToast("ホストの再生指示を待っています...");
-                    clientReadyButton.textContent = '待機中...';
-                    clientReadyButton.disabled = true;
-                    dataChannel.send(JSON.stringify({ type: 'clientReady' }));
-                }
             });
             
             // ファイル入力イベント
