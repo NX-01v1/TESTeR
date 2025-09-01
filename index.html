@@ -57,6 +57,18 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background-color: #424242;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #1DB954;
+            transition: width 0.1s linear;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -107,7 +119,16 @@
         <p class="text-center text-gray-400 mb-4">ホストの再生状態に同期します。音楽を再生するにはホストが開始するまでお待ちください。</p>
         <div class="w-full mb-4 card p-6 flex flex-col items-center">
             <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-center">ホストの音楽を再生中</h2>
-            <audio id="listener-player" class="w-full rounded-lg" controls></audio>
+            <!-- Progress bar and time display for listener -->
+            <div id="listener-audio-info" class="w-full hidden">
+                <div class="text-sm text-gray-400 mb-2 text-center">
+                    <span id="listener-current-time">0:00</span> / <span id="listener-duration">0:00</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="listener-progress-bar" class="progress-bar"></div>
+                </div>
+            </div>
+            <audio id="listener-player" class="hidden"></audio>
         </div>
     </div>
 </div>
@@ -142,6 +163,10 @@
     const dialogOkBtn = document.getElementById('dialog-ok-btn');
     const dialogIcon = document.getElementById('dialog-icon');
     const appConsole = document.getElementById('app-console');
+    const listenerProgressBar = document.getElementById('listener-progress-bar');
+    const listenerCurrentTimeEl = document.getElementById('listener-current-time');
+    const listenerDurationEl = document.getElementById('listener-duration');
+    const listenerAudioInfo = document.getElementById('listener-audio-info');
 
     // State Variables
     let isHost = false;
@@ -191,10 +216,18 @@
         }
     }
 
+    // Function to format time in minutes and seconds
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
     // Sync Logic
     function syncListener(state) {
         if (!state || !state.isPlaying) {
             listenerPlayer.pause();
+            listenerAudioInfo.classList.add('hidden');
             log("ホストが再生を停止しました。");
             return;
         }
@@ -208,6 +241,7 @@
         
         // Only sync if a current time and timestamp are provided
         if (state.currentTime && state.timestamp) {
+            listenerAudioInfo.classList.remove('hidden');
             const now = Date.now();
             const hostTimeAtUpdate = (state.currentTime + (now - state.timestamp) / 1000);
             const timeDifference = Math.abs(listenerPlayer.currentTime - hostTimeAtUpdate);
@@ -215,6 +249,14 @@
             if (timeDifference > syncThreshold) {
                 listenerPlayer.currentTime = hostTimeAtUpdate;
                 log(`時間を同期しました。誤差: ${timeDifference.toFixed(2)}s.`);
+            }
+
+            // Update progress bar
+            if (listenerPlayer.duration) {
+                const progress = (hostTimeAtUpdate / listenerPlayer.duration) * 100;
+                listenerProgressBar.style.width = `${progress}%`;
+                listenerCurrentTimeEl.textContent = formatTime(hostTimeAtUpdate);
+                listenerDurationEl.textContent = formatTime(listenerPlayer.duration);
             }
         }
 
@@ -235,7 +277,13 @@
         modeSelection.classList.add('hidden');
         hostContent.classList.remove('hidden');
         musicPlayer.src = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3"; // Default track
-        musicPlayer.play();
+        
+        // Add a small delay to allow the host state to be updated before playback starts
+        // This prevents the 'play' event from firing before the localstorage is updated.
+        setTimeout(() => {
+            musicPlayer.play();
+        }, 100);
+
         showDialog("あなたはホストとして開始しました。音楽を選択して再生してください。", "👑");
         log("ホストモードを開始しました。");
     });
@@ -252,13 +300,15 @@
         button.addEventListener('click', () => {
             const audioSrc = button.getAttribute('data-src');
             musicPlayer.src = audioSrc;
-            musicPlayer.play();
+            
             updateHostState({
                 isPlaying: true,
-                currentTime: musicPlayer.currentTime,
+                currentTime: 0,
                 audioUrl: audioSrc,
                 timestamp: Date.now()
             });
+
+            musicPlayer.play();
             log("音楽の選択と再生を開始しました。");
         });
     });
