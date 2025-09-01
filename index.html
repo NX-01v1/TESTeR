@@ -185,16 +185,18 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
 
+                // 認証状態の変更を監視
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
+                        // 認証成功時
                         userId = user.uid;
                         userIdValueDisplay.textContent = userId;
                         sessionIdInput.value = userId; // ホスト用として初期値を設定
                         isReady = true;
-                        loadingOverlay.style.display = 'none';
+                        loadingOverlay.style.display = 'none'; // 認証成功時にローディングを非表示にする
                     } else {
+                        // 認証されていない場合、サインインを試行
                         try {
-                             // トークンがあればカスタム認証、なければ匿名認証
                              if (initialAuthToken) {
                                  await signInWithCustomToken(auth, initialAuthToken);
                              } else {
@@ -203,12 +205,14 @@
                         } catch (error) {
                              console.error("認証エラー:", error);
                              showModal("認証に失敗しました。ページをリロードしてください。");
+                             loadingOverlay.style.display = 'none'; // 認証失敗時にもローディングを非表示にする
                         }
                     }
                 });
             } catch (error) {
                 console.error("Firebaseの初期化に失敗しました:", error);
                 showModal("アプリケーションの初期化に失敗しました。");
+                loadingOverlay.style.display = 'none'; // Firebase初期化自体が失敗した場合も非表示にする
             }
         }
         initializeFirebase();
