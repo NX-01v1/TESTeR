@@ -196,10 +196,7 @@
         peerConnection.onconnectionstatechange = (event) => {
             console.log("Connection state changed: ", peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected' && !isHost) {
-                setupSection.classList.add('hidden');
-                musicSection.classList.remove('hidden');
-                guestStatus.classList.remove('hidden');
-                showMessage("接続が確立しました！ホストが音楽を再生するのを待っています...", 'success');
+                // ゲスト側はデータチャンネルの接続完了を待ってからUIを切り替える
             }
         };
 
@@ -212,7 +209,15 @@
         // データチャンネルの接続を待機
         peerConnection.ondatachannel = (event) => {
             dataChannel = event.channel;
-            dataChannel.onopen = () => showMessage("データチャンネルが接続されました！", 'success');
+            dataChannel.onopen = () => {
+                showMessage("データチャンネルが接続されました！", 'success');
+                // ゲスト側はデータチャンネルの接続完了を待ってからUIを切り替える
+                if (!isHost) {
+                    setupSection.classList.add('hidden');
+                    musicSection.classList.remove('hidden');
+                    guestStatus.classList.remove('hidden');
+                }
+            };
             dataChannel.onmessage = handleDataChannelMessage;
         };
     }
@@ -243,6 +248,8 @@
             } else if (message.type === 'stop') {
                 player.currentTime = 0;
                 player.pause();
+            } else if (message.type === 'stream_ready') {
+                showMessage("ホストが音楽ファイルをロードしました。まもなく再生が始まります。", 'info');
             }
         } catch (error) {
             console.error("データチャンネルメッセージの解析に失敗しました:", error);
@@ -369,6 +376,10 @@
             mediaStream.getTracks().forEach(track => peerConnection.addTrack(track, mediaStream));
 
             showMessage('音楽ファイルがロードされました。再生・一時停止は自動で同期されます。', 'success');
+            
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify({ type: 'stream_ready' }));
+            }
         }
     };
 
