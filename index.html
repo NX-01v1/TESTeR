@@ -6,6 +6,8 @@
     <title>WebRTC Music Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
+    <!-- jsQRの代わりにInstascanを使用 -->
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
@@ -172,7 +174,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.0.0/dist/jsQR.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const roleSelection = document.getElementById('roleSelection');
@@ -220,8 +221,6 @@
             let fileData = null;
             let isHost = false;
             let isConnected = false;
-            let hostScanner = null;
-            let clientScanner = null;
             let stream = null;
 
             function showModal(title, message) {
@@ -239,8 +238,8 @@
                 
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        // This event fires multiple times.
-                        // We will handle the full SDP and candidate exchange in a single step after ICE gathering completes.
+                        // このイベントは複数回発生する場合があります。
+                        // ICEギャザリングが完了した後、完全なSDPと候補の交換を一度に処理します。
                     }
                 };
                 
@@ -306,7 +305,7 @@
                     const message = JSON.parse(event.data);
                     if (message.type === 'requestAudio') {
                         if (fileData) {
-                            // Split data into chunks to avoid large message size limits
+                            // メッセージサイズの上限を避けるためにデータをチャンクに分割
                             const chunkSize = 16 * 1024; // 16KB
                             const base64Data = fileData.split(',')[1];
                             for (let i = 0; i < base64Data.length; i += chunkSize) {
@@ -369,18 +368,18 @@
                             receivedChunks.push(message.chunk);
                             if (message.isLast) {
                                 const base64Data = receivedChunks.join('');
-                                const mimeType = 'audio/mpeg'; // Assuming audio/mpeg for simplicity
+                                const mimeType = 'audio/mpeg'; // 音声/mpegを仮定
                                 fileData = `data:${mimeType};base64,${base64Data}`;
                                 audioPlayer.src = fileData;
                                 audioPlayer.classList.remove('hidden');
                                 fileInfoDiv.classList.remove('hidden');
                                 fileNameSpan.textContent = '受信したファイル';
-                                clientPlaybackStatus.classList.remove('hidden'); // Show status message
+                                clientPlaybackStatus.classList.remove('hidden'); // ステータスメッセージを表示
                                 showModal('ファイル受信', 'ホストから音楽ファイルを受信しました。');
                                 receivedChunks = [];
                             }
                         } else if (message.type === 'sync') {
-                            // Participant listens for host's commands
+                            // 参加者はホストのコマンドをリッスン
                             if (message.action === 'play') {
                                 audioPlayer.currentTime = message.time;
                                 audioPlayer.play();
@@ -410,7 +409,7 @@
                         fileNameSpan.textContent = file.name;
                         audioPlayer.src = URL.createObjectURL(file);
                         audioPlayer.classList.remove('hidden');
-                        hostPlaybackControls.classList.remove('hidden'); // Host shows custom controls
+                        hostPlaybackControls.classList.remove('hidden'); // ホストはカスタムコントロールを表示
                     };
                     reader.readAsDataURL(file);
                 }
@@ -423,7 +422,7 @@
                     return;
                 }
                 if (dataChannel && dataChannel.readyState === 'open') {
-                    // Send request to client to begin transfer
+                    // ファイル転送を開始するようクライアントにリクエストを送信
                     dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
                 } else {
                     showModal('エラー', 'データチャネルが開いていません。接続を確認してください。');
@@ -444,38 +443,29 @@
             // ホスト側のQRコードスキャン
             scanButtonHost.addEventListener('click', async () => {
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    scannerHost.srcObject = stream;
-                    scannerHost.play();
+                    // Instascanの新しいインスタンスを作成し、カメラにビデオ要素をアタッチ
+                    let scanner = new Instascan.Scanner({ video: scannerHost });
                     
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-
-                    async function tick() {
-                        if (scannerHost.readyState === scannerHost.HAVE_ENOUGH_DATA) {
-                            canvas.height = scannerHost.videoHeight;
-                            canvas.width = scannerHost.videoWidth;
-                            context.drawImage(scannerHost, 0, 0, canvas.width, canvas.height);
-                            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                            const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-                            if (code && code.data && code.data.trim() !== '') {
-                                try {
-                                    const remoteAnswer = JSON.parse(code.data);
-                                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
-                                    showModal('接続完了', '参加者との接続が確立されました！');
-                                    hostSection.classList.add('hidden');
-                                    stream.getTracks().forEach(track => track.stop());
-                                    return;
-                                } catch (e) {
-                                    showModal('エラー', '無効なQRコードです。');
-                                    console.error('Failed to set remote answer:', e);
-                                }
-                            }
+                    scanner.addListener('scan', async function(content) {
+                        scanner.stop(); // QRコードを読み取ったらスキャナを停止
+                        try {
+                            const remoteAnswer = JSON.parse(content);
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+                            showModal('接続完了', '参加者との接続が確立されました！');
+                            hostSection.classList.add('hidden');
+                        } catch (e) {
+                            showModal('エラー', '無効なQRコードです。');
+                            console.error('Failed to set remote answer:', e);
                         }
-                        requestAnimationFrame(tick);
+                    });
+
+                    // カメラのリストを取得し、最初に見つかったカメラを起動
+                    const cameras = await Instascan.Camera.getCameras();
+                    if (cameras.length > 0) {
+                        scanner.start(cameras[0]);
+                    } else {
+                        showModal('エラー', 'カメラが見つかりませんでした。');
                     }
-                    requestAnimationFrame(tick);
                 } catch (e) {
                     showModal('エラー', 'カメラへのアクセスが拒否されました。');
                     console.error('Camera access denied:', e);
@@ -485,40 +475,33 @@
             // 参加者側のQRコードスキャン
             scanButtonClient.addEventListener('click', async () => {
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    scannerClient.srcObject = stream;
-                    scannerClient.play();
+                    // Instascanの新しいインスタンスを作成し、カメラにビデオ要素をアタッチ
+                    let scanner = new Instascan.Scanner({ video: scannerClient });
                     
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-
-                    async function tick() {
-                        if (scannerClient.readyState === scannerClient.HAVE_ENOUGH_DATA) {
-                            canvas.height = scannerClient.videoHeight;
-                            canvas.width = scannerClient.videoWidth;
-                            context.drawImage(scannerClient, 0, 0, canvas.width, canvas.height);
-                            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                            const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-                            if (code && code.data && code.data.trim() !== '') {
-                                try {
-                                    const remoteOffer = JSON.parse(code.data);
-                                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
-                                    
-                                    const answer = await peerConnection.createAnswer();
-                                    await peerConnection.setLocalDescription(answer);
-                                    clientSection.classList.remove('hidden');
-                                    stream.getTracks().forEach(track => track.stop());
-                                    return;
-                                } catch (e) {
-                                    showModal('エラー', '無効なQRコードです。');
-                                    console.error('Failed to set remote offer:', e);
-                                }
-                            }
+                    scanner.addListener('scan', async function(content) {
+                        scanner.stop(); // QRコードを読み取ったらスキャナを停止
+                        try {
+                            const remoteOffer = JSON.parse(content);
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
+                            
+                            const answer = await peerConnection.createAnswer();
+                            await peerConnection.setLocalDescription(answer);
+                            
+                            clientSection.classList.remove('hidden');
+                            showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せてください。');
+                        } catch (e) {
+                            showModal('エラー', '無効なQRコードです。');
+                            console.error('Failed to set remote offer:', e);
                         }
-                        requestAnimationFrame(tick);
+                    });
+
+                    // カメラのリストを取得し、最初に見つかったカメラを起動
+                    const cameras = await Instascan.Camera.getCameras();
+                    if (cameras.length > 0) {
+                        scanner.start(cameras[0]);
+                    } else {
+                        showModal('エラー', 'カメラが見つかりませんでした。');
                     }
-                    requestAnimationFrame(tick);
                 } catch (e) {
                     showModal('エラー', 'カメラへのアクセスが拒否されました。');
                     console.error('Camera access denied:', e);
