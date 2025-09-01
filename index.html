@@ -3,409 +3,369 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC 音楽同期 (サーバーレス)</title>
+    <title>WebRTC Music Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #f0f4f8;
+            color: #334155;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            color: #1f2937;
+            padding: 2rem;
         }
         .container {
-            max-width: 800px;
-            width: 100%;
-            background-color: #ffffff;
+            background-color: white;
             padding: 2.5rem;
-            border-radius: 1.5rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            margin: 1rem;
+            border-radius: 2rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
         }
         .file-input-label {
-            display: block;
-            background-color: #6366f1;
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 0.75rem;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            border: 2px dashed #9ca3af;
+            border-radius: 1rem;
+            color: #6b7280;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: border-color 0.2s, background-color 0.2s;
         }
         .file-input-label:hover {
-            background-color: #4f46e5;
+            border-color: #4f46e5;
+            background-color: #eef2ff;
         }
-        textarea {
-            resize: none;
-            height: 150px;
+        #fileInput {
+            display: none;
         }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="container space-y-6">
+        <h1 class="text-3xl font-bold text-center text-indigo-700">WebRTC Music Sync</h1>
+        <p class="text-center text-gray-600">
+            みんなで音楽を同期して聴こう！ファイルを選択し、接続リンクを共有してください。
+        </p>
 
-<div class="container space-y-8">
-    <h1 class="text-4xl font-bold text-center text-indigo-700">WebRTC 音楽同期</h1>
-    <p class="text-center text-gray-600">
-        サーバーなしで友達と音楽を同時に聴きましょう。QRコードを使って接続を確立できます。
-    </p>
+        <!-- Connection Status -->
+        <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+            <p id="connectionStatus" class="text-center font-medium">
+                接続していません
+            </p>
+        </div>
 
-    <!-- 接続設定セクション -->
-    <div id="setup-section" class="space-y-6">
-        <!-- ホストの手順 -->
-        <div id="host-guide" class="space-y-4 p-6 border-2 border-indigo-200 rounded-xl">
-            <h2 class="text-2xl font-bold text-indigo-600">ホストの手順</h2>
-            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                <li><button id="create-offer-button" class="bg-indigo-500 text-white font-bold py-2 px-4 rounded-full shadow-lg hover:bg-indigo-600 transition-colors">接続情報を生成</button>すると、QRコードが表示されます。</li>
-                <li>友達にそのQRコードをスキャンしてもらいます。</li>
-                <li>友達から送られてきた情報を下の**ゲストからの情報**に貼り付け、「接続開始」ボタンを押します。</li>
-            </ol>
-            <div class="space-y-4">
-                <h3 class="font-bold text-lg">ホストの情報（生成された情報）</h3>
-                <div id="offer-qrcode" class="w-48 h-48 mx-auto my-4"></div>
-                <textarea id="offer-textarea" readonly class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"></textarea>
-                <button id="copy-offer-button" class="w-full bg-indigo-100 text-indigo-700 font-medium py-2 px-4 rounded-full hover:bg-indigo-200 transition-colors">テキストをコピー</button>
-            </div>
-            <div class="space-y-4">
-                <h3 class="font-bold text-lg">ゲストからの情報（入力）</h3>
-                <textarea id="answer-input" class="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none"></textarea>
-                <button id="connect-host-button" class="w-full bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-600 transition-colors">接続開始</button>
-            </div>
-        </div>
-        
-        <!-- ゲストの手順 -->
-        <div id="guest-guide" class="space-y-4 p-6 border-2 border-green-200 rounded-xl">
-            <h2 class="text-2xl font-bold text-green-600">ゲストの手順</h2>
-            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                <li>ホストのQRコードをスキャンして下の**ホストからの情報**に情報を貼り付けます。</li>
-                <li><button id="create-answer-button" class="bg-green-500 text-white font-bold py-2 px-4 rounded-full shadow-lg hover:bg-green-600 transition-colors">接続情報を生成</button>すると、QRコードが表示されます。</li>
-                <li>そのQRコードをホストにスキャンしてもらいます。</li>
-            </ol>
-            <div class="space-y-4">
-                <h3 class="font-bold text-lg">ホストからの情報（入力）</h3>
-                <textarea id="offer-input" class="w-full p-2 border border-gray-300 rounded-lg bg-white focus:outline-none"></textarea>
-            </div>
-            <div class="space-y-4">
-                <h3 class="font-bold text-lg">ゲストの情報（生成された情報）</h3>
-                <div id="answer-qrcode" class="w-48 h-48 mx-auto my-4"></div>
-                <textarea id="answer-textarea" readonly class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"></textarea>
-                <button id="copy-answer-button" class="w-full bg-green-100 text-green-700 font-medium py-2 px-4 rounded-full hover:bg-green-200 transition-colors">テキストをコピー</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 音楽再生セクション -->
-    <div id="music-section" class="hidden space-y-4">
-        <div id="host-controls" class="hidden space-y-4">
-            <input type="file" id="audio-file-input" accept="audio/*" class="hidden">
-            <label for="audio-file-input" class="file-input-label">
-                音楽ファイルを選択
+        <!-- File Input Section -->
+        <div>
+            <label for="fileInput" class="file-input-label">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span>音楽ファイルをドラッグ＆ドロップまたはクリックで選択</span>
             </label>
+            <input type="file" id="fileInput" accept="audio/*" class="hidden">
         </div>
-        <div id="guest-status" class="hidden text-center text-gray-500">
-            音楽の再生をホストが開始するのを待っています...
+
+        <!-- File Info & Playback -->
+        <div id="fileInfo" class="hidden p-4 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+            <p class="font-semibold text-indigo-700">選択したファイル:</p>
+            <p id="fileName" class="text-gray-800 break-words"></p>
         </div>
-        <audio id="player" controls class="w-full"></audio>
+        
+        <audio id="audioPlayer" controls class="w-full hidden rounded-lg"></audio>
+
+        <!-- Control Buttons -->
+        <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+            <button id="sendDataButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                参加者に同期
+            </button>
+            <button id="disconnectButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                接続を切断
+            </button>
+        </div>
+
+        <!-- Connection URL -->
+        <div id="connectionUrlSection" class="hidden">
+            <p class="text-sm font-medium text-center text-gray-500">
+                このURLを共有して他の人を招待:
+            </p>
+            <div class="relative mt-2">
+                <input type="text" id="connectionUrl" class="w-full p-3 border border-gray-300 rounded-lg pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly>
+                <button id="copyButton" class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 hover:text-indigo-500 transition duration-200 ease-in-out">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal for messages -->
+        <div id="messageModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
+                <h3 id="modalTitle" class="text-xl font-semibold mb-4 text-center"></h3>
+                <p id="modalMessage" class="text-gray-700 text-center mb-6"></p>
+                <button id="modalCloseButton" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">閉じる</button>
+            </div>
+        </div>
     </div>
 
-    <!-- メッセージボックス -->
-    <div id="message-box" class="fixed bottom-4 right-4 p-4 bg-gray-800 text-white rounded-lg shadow-xl hidden"></div>
-</div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('fileInput');
+            const fileInfoDiv = document.getElementById('fileInfo');
+            const fileNameSpan = document.getElementById('fileName');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const connectionStatus = document.getElementById('connectionStatus');
+            const connectionUrlSection = document.getElementById('connectionUrlSection');
+            const connectionUrlInput = document.getElementById('connectionUrl');
+            const copyButton = document.getElementById('copyButton');
+            const sendDataButton = document.getElementById('sendDataButton');
+            const disconnectButton = document.getElementById('disconnectButton');
+            const messageModal = document.getElementById('messageModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            const modalCloseButton = document.getElementById('modalCloseButton');
 
-<script>
-    // UI要素の取得
-    const setupSection = document.getElementById('setup-section');
-    const musicSection = document.getElementById('music-section');
-    const createOfferButton = document.getElementById('create-offer-button');
-    const createAnswerButton = document.getElementById('create-answer-button');
-    const connectHostButton = document.getElementById('connect-host-button');
-    const offerTextarea = document.getElementById('offer-textarea');
-    const answerInput = document.getElementById('answer-input');
-    const offerInput = document.getElementById('offer-input');
-    const answerTextarea = document.getElementById('answer-textarea');
-    const copyOfferButton = document.getElementById('copy-offer-button');
-    const copyAnswerButton = document.getElementById('copy-answer-button');
-    const audioFileInput = document.getElementById('audio-file-input');
-    const player = document.getElementById('player');
-    const hostControls = document.getElementById('host-controls');
-    const guestStatus = document.getElementById('guest-status');
-    const messageBox = document.getElementById('message-box');
-    const offerQrcodeDiv = document.getElementById('offer-qrcode');
-    const answerQrcodeDiv = document.getElementById('answer-qrcode');
-
-    // WebRTC関連のグローバル変数
-    let peerConnection;
-    let dataChannel;
-    let isHost = false;
-
-    // メッセージボックスを表示するヘルパー関数
-    function showMessage(message, type = 'info') {
-        messageBox.textContent = message;
-        messageBox.style.backgroundColor = type === 'error' ? '#dc2626' : '#1f2937';
-        messageBox.classList.remove('hidden');
-        setTimeout(() => {
-            messageBox.classList.add('hidden');
-        }, 5000);
-    }
-    
-    // クリップボードにテキストをコピーする関数
-    function copyToClipboard(text, successMessage) {
-        const tempInput = document.createElement('textarea');
-        tempInput.value = text;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand('copy');
-        document.body.removeChild(tempInput);
-        showMessage(successMessage, 'success');
-    }
-
-    // RTC Peer Connectionのセットアップ
-    function setupPeerConnection() {
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
-            ]
-        };
-        peerConnection = new RTCPeerConnection(configuration);
-
-        // ICE candidateを収集
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                if (isHost) {
-                    const signalingData = JSON.parse(offerTextarea.value || '{}');
-                    signalingData.candidates = signalingData.candidates || [];
-                    signalingData.candidates.push(event.candidate.toJSON());
-                    const jsonStr = JSON.stringify(signalingData);
-                    offerTextarea.value = jsonStr;
-                    generateQRCode(offerQrcodeDiv, jsonStr);
-                } else {
-                    const signalingData = JSON.parse(answerTextarea.value || '{}');
-                    signalingData.candidates = signalingData.candidates || [];
-                    signalingData.candidates.push(event.candidate.toJSON());
-                    const jsonStr = JSON.stringify(signalingData);
-                    answerTextarea.value = jsonStr;
-                    generateQRCode(answerQrcodeDiv, jsonStr);
-                }
-            }
-        };
-        
-        // 接続状態が変更されたときにUIを更新する
-        peerConnection.onconnectionstatechange = (event) => {
-            console.log("Connection state changed: ", peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected' && !isHost) {
-                // ゲスト側はデータチャンネルの接続完了を待ってからUIを切り替える
-            }
-        };
-
-        // リモートトラックを受信
-        peerConnection.ontrack = (event) => {
-            const remoteStream = event.streams[0];
-            if (remoteStream && remoteStream.getAudioTracks().length > 0) {
-                player.srcObject = remoteStream;
-                player.play();
-                showMessage("ホストが音楽の再生を開始しました。", 'success');
-            } else {
-                console.warn("Received a stream without an audio track.");
-            }
-        };
-
-        // データチャンネルの接続を待機
-        peerConnection.ondatachannel = (event) => {
-            dataChannel = event.channel;
-            dataChannel.onopen = () => {
-                showMessage("データチャンネルが接続されました！", 'success');
-                // ゲスト側はデータチャンネルの接続完了を待ってからUIを切り替える
-                if (!isHost) {
-                    setupSection.classList.add('hidden');
-                    musicSection.classList.remove('hidden');
-                    guestStatus.classList.remove('hidden');
-                }
+            const iceServers = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                ]
             };
-            dataChannel.onmessage = handleDataChannelMessage;
-        };
-    }
 
-    // QRコードを生成する関数
-    function generateQRCode(element, text) {
-        element.innerHTML = ''; // 古いQRコードをクリア
-        new QRCode(element, {
-            text: text,
-            width: 192,
-            height: 192,
-            colorDark : "#1f2937",
-            colorLight : "#f3f4f6",
-            correctLevel : QRCode.CorrectLevel.H
+            let peerConnection = null;
+            let dataChannel = null;
+            let fileData = null;
+            let isHost = false;
+            let isConnected = false;
+            const urlParams = new URLSearchParams(window.location.search);
+            const offer = urlParams.get('offer');
+
+            function showModal(title, message) {
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                messageModal.classList.remove('hidden');
+            }
+
+            modalCloseButton.onclick = () => {
+                messageModal.classList.add('hidden');
+            };
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        fileData = event.target.result;
+                        fileInfoDiv.classList.remove('hidden');
+                        fileNameSpan.textContent = file.name;
+                        audioPlayer.src = URL.createObjectURL(file);
+                        audioPlayer.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            sendDataButton.addEventListener('click', () => {
+                if (!fileData) {
+                    showModal('エラー', '音楽ファイルが選択されていません。');
+                    return;
+                }
+                if (dataChannel && dataChannel.readyState === 'open') {
+                    dataChannel.send(JSON.stringify({ type: 'audio', data: fileData }));
+                    showModal('送信完了', '音楽ファイルを参加者に送信しました。');
+                } else {
+                    showModal('エラー', 'データチャネルが開いていません。接続を確認してください。');
+                }
+            });
+
+            audioPlayer.addEventListener('play', () => {
+                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
+                    const time = audioPlayer.currentTime;
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
+                }
+            });
+
+            audioPlayer.addEventListener('pause', () => {
+                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
+                    const time = audioPlayer.currentTime;
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
+                }
+            });
+
+            function createPeerConnection() {
+                peerConnection = new RTCPeerConnection(iceServers);
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        // For simplicity, we'll log the candidate. In a real app, you would send this to the other peer.
+                        // Here, we'll use a trick for peer-to-peer without a signaling server.
+                        // The user will copy the offer/answer from the URL.
+                    }
+                };
+                peerConnection.onconnectionstatechange = () => {
+                    if (peerConnection.connectionState === 'connected') {
+                        isConnected = true;
+                        connectionStatus.textContent = '接続済み';
+                        sendDataButton.disabled = false;
+                        disconnectButton.disabled = false;
+                    } else {
+                        isConnected = false;
+                        connectionStatus.textContent = '切断済み';
+                        sendDataButton.disabled = true;
+                        disconnectButton.disabled = true;
+                    }
+                };
+                peerConnection.oniceconnectionstatechange = () => {
+                    if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
+                        connectionStatus.textContent = '接続が切断されました';
+                        sendDataButton.disabled = true;
+                        disconnectButton.disabled = true;
+                    }
+                };
+            }
+
+            async function handleHost() {
+                isHost = true;
+                createPeerConnection();
+
+                // Create a data channel for sending audio data and sync commands
+                dataChannel = peerConnection.createDataChannel('audio-sync');
+                dataChannel.onopen = () => {
+                    console.log('Data Channel is open!');
+                };
+                dataChannel.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'requestAudio') {
+                        if (fileData) {
+                            dataChannel.send(JSON.stringify({ type: 'audio', data: fileData }));
+                        } else {
+                            showModal('エラー', 'ホストはまだ音楽ファイルを選択していません。');
+                        }
+                    }
+                };
+                dataChannel.onclose = () => {
+                    console.log('Data Channel is closed.');
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                peerConnection.onnegotiationneeded = async () => {
+                    try {
+                        const offer = await peerConnection.createOffer();
+                        await peerConnection.setLocalDescription(offer);
+                        updateConnectionUrl();
+                    } catch (err) {
+                        console.error('Error creating offer:', err);
+                    }
+                };
+
+                updateConnectionUrl();
+                connectionStatus.textContent = '待機中... 接続リンクを共有してください。';
+                
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        // The candidate gathering is done.
+                        if (peerConnection.localDescription) {
+                           updateConnectionUrl();
+                        }
+                    }
+                };
+            }
+
+            async function handleClient(offer) {
+                isHost = false;
+                createPeerConnection();
+
+                peerConnection.ondatachannel = (event) => {
+                    dataChannel = event.channel;
+                    dataChannel.onopen = () => {
+                        console.log('Data Channel is open!');
+                        // Request audio file from host
+                        dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
+                    };
+                    dataChannel.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        if (message.type === 'audio') {
+                            fileData = message.data;
+                            audioPlayer.src = fileData;
+                            audioPlayer.classList.remove('hidden');
+                            fileInfoDiv.classList.remove('hidden');
+                            fileNameSpan.textContent = '受信したファイル'; // The filename is unknown
+                            showModal('ファイル受信', 'ホストから音楽ファイルを受信しました。');
+                        } else if (message.type === 'sync') {
+                            if (message.action === 'play') {
+                                audioPlayer.currentTime = message.time;
+                                audioPlayer.play();
+                            } else if (message.action === 'pause') {
+                                audioPlayer.currentTime = message.time;
+                                audioPlayer.pause();
+                            }
+                        }
+                    };
+                    dataChannel.onclose = () => {
+                        console.log('Data Channel is closed.');
+                        showModal('接続切断', 'ホストとの接続が切断されました。');
+                    };
+                };
+
+                const remoteOffer = JSON.parse(atob(offer));
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                const answerUrl = `${window.location.origin}${window.location.pathname}?answer=${btoa(JSON.stringify(peerConnection.localDescription))}`;
+                connectionUrlInput.value = answerUrl;
+                connectionUrlSection.classList.remove('hidden');
+                connectionStatus.textContent = '接続中...';
+                showModal('接続準備完了', 'ホストにこのURLを伝えてください。');
+            }
+
+            async function handleAnswer(answer) {
+                const remoteAnswer = JSON.parse(atob(answer));
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+                showModal('接続成功', '参加者と接続しました。音楽を再生してください。');
+            }
+
+            function updateConnectionUrl() {
+                if (peerConnection.localDescription) {
+                    const offerUrl = `${window.location.origin}${window.location.pathname}?offer=${btoa(JSON.stringify(peerConnection.localDescription))}`;
+                    connectionUrlInput.value = offerUrl;
+                    connectionUrlSection.classList.remove('hidden');
+                }
+            }
+            
+            disconnectButton.addEventListener('click', () => {
+                if (peerConnection) {
+                    peerConnection.close();
+                }
+                window.location.href = window.location.origin + window.location.pathname;
+            });
+            
+            copyButton.addEventListener('click', () => {
+                connectionUrlInput.select();
+                document.execCommand('copy');
+                showModal('コピー完了', 'URLがクリップボードにコピーされました。');
+            });
+
+            if (offer) {
+                handleClient(offer);
+            } else {
+                const answer = urlParams.get('answer');
+                if (answer) {
+                    // This is the host receiving the answer from the client
+                    handleAnswer(answer);
+                } else {
+                    handleHost();
+                }
+            }
         });
-    }
-    
-    // データチャンネル経由で受け取ったメッセージを処理
-    function handleDataChannelMessage(event) {
-        try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'play') {
-                player.currentTime = message.time;
-                player.play();
-            } else if (message.type === 'pause') {
-                player.currentTime = message.time;
-                player.pause();
-            } else if (message.type === 'stop') {
-                player.currentTime = 0;
-                player.pause();
-            } else if (message.type === 'stream_ready') {
-                showMessage("ホストが音楽ファイルをロードしました。まもなく再生が始まります。", 'info');
-            }
-        } catch (error) {
-            console.error("データチャンネルメッセージの解析に失敗しました:", error);
-        }
-    }
-
-    // ホストの接続情報を生成
-    createOfferButton.onclick = async () => {
-        isHost = true;
-        setupPeerConnection();
-
-        // データチャンネルの作成（ホストのみ）
-        dataChannel = peerConnection.createDataChannel("chat");
-        dataChannel.onopen = () => showMessage("データチャンネルが接続されました！", 'success');
-        dataChannel.onmessage = handleDataChannelMessage;
-
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        
-        const signalingData = {
-            sdp: peerConnection.localDescription.sdp,
-            type: peerConnection.localDescription.type,
-            candidates: []
-        };
-        const jsonStr = JSON.stringify(signalingData);
-        offerTextarea.value = jsonStr;
-        generateQRCode(offerQrcodeDiv, jsonStr);
-        showMessage("接続情報が生成されました。QRコードをスキャンしてください。", "info");
-    };
-
-    // ゲストの接続情報を生成
-    createAnswerButton.onclick = async () => {
-        isHost = false;
-        if (!offerInput.value.trim()) {
-            showMessage("ホストの接続情報をテキストボックスに貼り付けてください。", 'error');
-            return;
-        }
-
-        let offer;
-        try {
-            offer = JSON.parse(offerInput.value);
-        } catch (e) {
-            showMessage("無効なJSON形式です。正しい情報を貼り付けてください。", 'error');
-            return;
-        }
-
-        if (!offer.sdp) {
-            showMessage("有効な接続情報が貼り付けられていません。", 'error');
-            return;
-        }
-
-        setupPeerConnection();
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        
-        const signalingData = {
-            sdp: peerConnection.localDescription.sdp,
-            type: peerConnection.localDescription.type,
-            candidates: []
-        };
-        const jsonStr = JSON.stringify(signalingData);
-        answerTextarea.value = jsonStr;
-        generateQRCode(answerQrcodeDiv, jsonStr);
-        
-        // ホストから送られてきたICE候補を追加
-        if (offer.candidates) {
-            for (const candidate of offer.candidates) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-        }
-        showMessage("回答が生成されました。QRコードをホストにスキャンさせてください。", "info");
-    };
-    
-    // ホストがゲストの接続情報を受け取って接続を開始
-    connectHostButton.onclick = async () => {
-        if (!peerConnection || peerConnection.signalingState !== 'have-local-offer') {
-            showMessage("まず、'接続情報を生成'ボタンを押して、ホストとしての接続を初期化してください。", "error");
-            return;
-        }
-
-        if (!answerInput.value.trim()) {
-            showMessage("ゲストの接続情報をテキストボックスに貼り付けてください。", 'error');
-            return;
-        }
-
-        let answer;
-        try {
-            answer = JSON.parse(answerInput.value);
-        } catch (e) {
-            showMessage("無効なJSON形式です。正しい情報を貼り付けてください。", 'error');
-            return;
-        }
-
-        if (!answer.sdp) {
-            showMessage("有効な接続情報が貼り付けられていません。", 'error');
-            return;
-        }
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-
-        // ゲストから送られてきたICE候補を追加
-        if (answer.candidates) {
-            for (const candidate of answer.candidates) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-        }
-        
-        // 接続が確立した時点で音楽コントロールを表示
-        setupSection.classList.add('hidden');
-        musicSection.classList.remove('hidden');
-        hostControls.classList.remove('hidden');
-        showMessage("接続が確立しました！", 'success');
-    };
-    
-    // ホストが音楽ファイルを読み込む
-    audioFileInput.onchange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const fileUrl = URL.createObjectURL(file);
-            player.src = fileUrl;
-            
-            // WebRTCストリームとして送信
-            const mediaStream = player.captureStream();
-            mediaStream.getTracks().forEach(track => peerConnection.addTrack(track, mediaStream));
-
-            showMessage('音楽ファイルがロードされました。再生・一時停止は自動で同期されます。', 'success');
-            
-            if (dataChannel && dataChannel.readyState === 'open') {
-                dataChannel.send(JSON.stringify({ type: 'stream_ready' }));
-            }
-        }
-    };
-
-    // 再生・一時停止の同期
-    player.onplay = () => {
-        if (isHost && dataChannel && dataChannel.readyState === 'open') {
-            dataChannel.send(JSON.stringify({ type: 'play', time: player.currentTime }));
-        }
-    };
-
-    player.onpause = () => {
-        if (isHost && dataChannel && dataChannel.readyState === 'open') {
-            dataChannel.send(JSON.stringify({ type: 'pause', time: player.currentTime }));
-        }
-    };
-
-    // コピーボタンのイベントリスナー
-    copyOfferButton.onclick = () => copyToClipboard(offerTextarea.value, "接続情報をコピーしました！");
-    copyAnswerButton.onclick = () => copyToClipboard(answerTextarea.value, "接続情報をコピーしました！");
-
-</script>
+    </script>
 </body>
 </html>
