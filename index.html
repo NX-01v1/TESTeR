@@ -341,6 +341,7 @@
             let clientScanner = null;
             let totalFileSize = 0;
             let receivedSize = 0;
+            let isTransferring = false; // 転送中かどうかのフラグを追加
 
             /**
              * トースト通知を表示する関数
@@ -491,6 +492,7 @@
                     if (message.type === 'requestAudio') {
                         if (fileData) {
                             showToast('参加者に音楽ファイルを送信しています。');
+                            isTransferring = true;
                             
                             // データのチャンク化
                             const base64Data = fileData.split(',')[1];
@@ -516,6 +518,12 @@
                         } else {
                             showToast('エラー: 音楽ファイルを選択してください。');
                         }
+                    } else if (message.type === 'clientReady') {
+                        // 参加者からの再生開始通知を受信
+                        // 参加者側で play() を呼び出すよう指示
+                        audioPlayer.play();
+                        const time = audioPlayer.currentTime;
+                        dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
                     }
                 };
                 dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
@@ -583,9 +591,12 @@
                             }
                         } else if (message.type === 'sync') {
                             // 参加者はホストのコマンドをリッスン
-                            // ブラウザの自動再生ポリシーのため、play()は呼び出さない
                             if (message.action === 'play') {
-                                audioPlayer.currentTime = message.time;
+                                // 遅延を考慮して再生時間を補正
+                                const delay = (Date.now() - message.timestamp) / 1000;
+                                const syncedTime = message.time + delay;
+                                audioPlayer.currentTime = syncedTime;
+                                audioPlayer.play(); // ホストからの指示で再生開始
                                 clientPlaybackStatus.textContent = '再生中';
                             } else if (message.action === 'pause') {
                                 audioPlayer.currentTime = message.time;
@@ -603,10 +614,13 @@
             
             // ホストの再生・一時停止ボタンのイベントリスナーを設定
             playButton.addEventListener('click', () => {
-                if (isConnected && dataChannel && dataChannel.readyState === 'open') {
-                    audioPlayer.play();
+                // ファイル転送が完了していることを確認
+                if (isConnected && dataChannel && dataChannel.readyState === 'open' && !isTransferring) {
                     const time = audioPlayer.currentTime;
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
+                    // 参加者への再生指示を送信
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
+                } else if (isTransferring) {
+                    showToast('ファイル転送中です。完了までお待ちください。');
                 }
             });
 
@@ -620,11 +634,11 @@
 
             // 参加者側の再生ボタンのイベントリスナーを設定
             clientPlayButton.addEventListener('click', () => {
-                // ユーザーの操作で再生を開始する
-                audioPlayer.play().catch(e => {
-                    console.error("Playback failed:", e);
-                    showToast("再生に失敗しました。");
-                });
+                // ホストに「再生準備ができました」と通知
+                if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                    showToast("ホストの再生指示を待っています...");
+                    dataChannel.send(JSON.stringify({ type: 'clientReady' }));
+                }
             });
             
             // ファイル入力イベント
