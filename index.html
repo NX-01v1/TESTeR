@@ -69,6 +69,26 @@
             background-color: #1DB954;
             transition: width 0.1s linear;
         }
+
+        /* Use !important to ensure Tailwind's 'hidden' utility is always overridden by JS. */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Pulse animation for the play button */
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.7);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(29, 185, 84, 0);
+            }
+        }
+        .animate-pulse-once {
+            animation: pulse 1.5s ease-out;
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
@@ -277,7 +297,9 @@
         if (state.isPlaying) {
             listenerPlayBtn.classList.remove('hidden');
             listenerMuteBtn.classList.remove('hidden');
-            listenerStatusEl.textContent = "ホストが再生を開始しました。再生ボタンを押してください。";
+            listenerPlayBtn.classList.add('animate-pulse-once'); // Add animation
+            listenerStatusEl.textContent = "ホストが再生を開始しました。再生ボタンを押して同期してください。";
+            log("リスナーに再生を促すメッセージを表示しました。");
         } else {
             listenerPlayer.pause();
             listenerPlayBtn.classList.add('hidden');
@@ -315,6 +337,7 @@
     listenerPlayBtn.addEventListener('click', () => {
         listenerPlayer.play().then(() => {
             listenerStatusEl.textContent = "ホストの音楽を再生中";
+            listenerPlayBtn.classList.remove('animate-pulse-once'); // Remove animation on click
             listenerPlayBtn.classList.add('hidden');
             log("リスナーが再生ボタンを押しました。");
         }).catch(e => {
