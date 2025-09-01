@@ -315,6 +315,7 @@
                     let receivedChunks = [];
                     dataChannel.onopen = () => {
                         console.log('Data Channel is open!');
+                        // クライアント側からファイルの転送をリクエスト
                         dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
                     };
                     dataChannel.onmessage = async (event) => {
