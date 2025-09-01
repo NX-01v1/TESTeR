@@ -172,8 +172,8 @@
 
             <!-- 参加者再生コントロール -->
             <div id="clientPlaybackControls" class="hidden flex justify-center space-x-4">
-                <button id="clientPlayButton" disabled class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <button id="clientReadyButton" disabled class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    <!-- JavaScriptでテキストが設定されます -->
                 </button>
             </div>
 
@@ -316,7 +316,7 @@
             
             // 追加されたUI要素
             const clientPlaybackControls = document.getElementById('clientPlaybackControls');
-            const clientPlayButton = document.getElementById('clientPlayButton');
+            const clientReadyButton = document.getElementById('clientReadyButton');
 
             // トースト通知のUI要素
             const toastContainer = document.getElementById('toastContainer');
@@ -525,8 +525,9 @@
                             showToast('エラー: 音楽ファイルを選択してください。');
                         }
                     } else if (message.type === 'clientReady') {
-                        // 参加者からの再生開始通知を受信
-                        audioPlayer.play();
+                        // 参加者からの「再生準備完了」通知を受信
+                        // ブラウザの制約のため、ホスト側が手動で再生を開始する
+                        showToast("参加者が再生準備を完了しました。再生を開始してください。");
                     }
                 };
                 dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
@@ -589,7 +590,9 @@
                                 
                                 // ファイル受信完了後、再生コントロールを表示
                                 clientPlaybackControls.classList.remove('hidden');
-                                clientPlayButton.disabled = false;
+                                // 参加者側の再生準備ボタンのテキストと状態を設定
+                                clientReadyButton.textContent = '再生準備完了';
+                                clientReadyButton.disabled = false;
                                 receivedChunks = [];
                             }
                         } else if (message.type === 'sync') {
@@ -665,11 +668,17 @@
                 }
             });
 
-            // 参加者側の再生ボタンのイベントリスナーを設定
-            clientPlayButton.addEventListener('click', () => {
+            // 参加者側の再生準備ボタンのイベントリスナーを設定
+            clientReadyButton.addEventListener('click', () => {
+                // このクリック操作が、ブラウザの自動再生の制約を解除する
+                audioPlayer.play();
+                audioPlayer.pause();
+                
                 // ホストに「再生準備ができました」と通知
                 if (isConnected && dataChannel && dataChannel.readyState === 'open') {
                     showToast("ホストの再生指示を待っています...");
+                    clientReadyButton.textContent = '待機中...';
+                    clientReadyButton.disabled = true;
                     dataChannel.send(JSON.stringify({ type: 'clientReady' }));
                 }
             });
