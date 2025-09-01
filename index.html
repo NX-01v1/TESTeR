@@ -637,12 +637,22 @@
                 qrReaderHostDiv.classList.remove('hidden');
                 const selectedCameraId = cameraSelectHost.value;
                 hostScanner = new Html5Qrcode('qr-reader-host');
+                
+                // カメラの解像度を指定するオプションを追加
+                const config = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    // ここでビデオの解像度を定義
+                    videoConstraints: {
+                        facingMode: 'environment', // スマートフォンでは背面カメラを優先
+                        width: { ideal: 1280 }, // 希望の幅
+                        height: { ideal: 720 }  // 希望の高さ
+                    }
+                };
+
                 hostScanner.start(
                     selectedCameraId,
-                    {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 }
-                    },
+                    config, // 修正したconfigを渡す
                     (decodedText, decodedResult) => {
                         // 成功コールバック
                         hostScanner.stop().then(() => {
@@ -672,12 +682,22 @@
                 qrReaderClientDiv.classList.remove('hidden');
                 const selectedCameraId = cameraSelectClient.value;
                 clientScanner = new Html5Qrcode('qr-reader-client');
+                
+                // カメラの解像度を指定するオプションを追加
+                const config = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    // ここでビデオの解像度を定義
+                    videoConstraints: {
+                        facingMode: 'environment', // スマートフォンでは背面カメラを優先
+                        width: { ideal: 1280 }, // 希望の幅
+                        height: { ideal: 720 }  // 希望の高さ
+                    }
+                };
+
                 clientScanner.start(
                     selectedCameraId,
-                    {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 }
-                    },
+                    config, // 修正したconfigを渡す
                     (decodedText, decodedResult) => {
                         // 成功コールバック
                         clientScanner.stop().then(async () => {
