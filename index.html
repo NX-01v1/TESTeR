@@ -106,6 +106,12 @@
     </div>
 </div>
 
+<!-- Console Section -->
+<div class="fixed bottom-0 left-0 w-full card p-4 z-40">
+    <h2 class="text-xl font-bold mb-2 text-green-500">コンソール</h2>
+    <div id="app-console" class="bg-gray-800 text-gray-300 p-2 rounded-md h-32 overflow-y-scroll text-sm font-mono"></div>
+</div>
+
 <!-- Custom Dialog Modal -->
 <div id="dialog-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
     <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm card">
@@ -149,12 +155,21 @@
     const dialogMessage = document.getElementById('dialog-message');
     const dialogOkBtn = document.getElementById('dialog-ok-btn');
     const dialogIcon = document.getElementById('dialog-icon');
+    const appConsole = document.getElementById('app-console');
 
     // State Variables
     let userId = null;
     let isHost = false;
-    let isInitialized = false;
     const syncThreshold = 0.5; // Sync if difference is more than 0.5 seconds
+
+    // Function to add a log message to the console
+    function log(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.textContent = `[${timestamp}] ${message}`;
+        appConsole.appendChild(logEntry);
+        appConsole.scrollTop = appConsole.scrollHeight;
+    }
 
     // Function to show custom dialog
     function showDialog(message, icon = '🎵') {
@@ -172,25 +187,29 @@
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             userId = user.uid;
-            console.log('User signed in with UID:', userId);
+            log('User signed in with UID: ' + userId);
             appIdEl.textContent = appId;
             userIdEl.textContent = userId;
-            loadingOverlay.classList.add('hidden');
-            mainContent.classList.remove('hidden');
-            isInitialized = true;
         } else {
-            console.log('No user signed in. Signing in anonymously...');
+            log('No user signed in. Attempting anonymous sign-in...');
             try {
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
+                    log('Signed in with custom token.');
                 } else {
                     await signInAnonymously(auth);
+                    log('Signed in anonymously.');
                 }
             } catch (error) {
                 console.error("Authentication failed:", error);
+                log("認証に失敗しました: " + error.message);
                 showDialog("認証に失敗しました。ページをリロードしてください。", "⚠️");
             }
         }
+        // Always hide loading overlay and show content after the initial auth state check,
+        // regardless of success or failure.
+        loadingOverlay.classList.add('hidden');
+        mainContent.classList.remove('hidden');
     });
 
     // Firestore Functions
@@ -201,53 +220,64 @@
         if (!isHost) return;
         try {
             await setDoc(getPublicDocRef(), state);
-            console.log("Host state updated:", state);
+            log("ホストの状態を更新しました。");
         } catch (e) {
             console.error("Error updating host state: ", e);
+            log("ホストの状態を更新できませんでした。: " + e.message);
             showDialog("ホストの状態を更新できませんでした。ネットワーク接続を確認してください。", "⚠️");
         }
     }
 
     function listenForHostChanges() {
-        console.log("Listening for host changes...");
+        log("ホストの変更をリッスンしています...");
         onSnapshot(getPublicDocRef(), (doc) => {
             if (doc.exists() && !isHost) {
                 const data = doc.data();
-                console.log("Received host state update:", data);
+                log("ホストの状態更新を受信しました。");
                 syncListener(data);
             }
         }, (error) => {
             console.error("Error listening for host changes:", error);
+            log("同期情報の受信に失敗しました。: " + error.message);
             showDialog("同期情報の受信に失敗しました。ネットワーク接続を確認してください。", "⚠️");
         });
     }
 
     // Sync Logic
     function syncListener(state) {
-        if (!state || !state.isPlaying || !state.currentTime) {
+        if (!state || !state.isPlaying) {
             listenerPlayer.pause();
+            log("ホストが再生を停止しました。");
             return;
         }
 
-        const audioUrl = state.audioUrl || "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3";
+        const audioUrl = state.audioUrl;
         if (listenerPlayer.src !== audioUrl) {
             listenerPlayer.src = audioUrl;
             listenerPlayer.load();
+            log("新しい音楽を読み込みました: " + audioUrl);
         }
         
-        const now = Date.now();
-        const hostTimeAtUpdate = (state.currentTime + (now - state.timestamp) / 1000);
-        const timeDifference = Math.abs(listenerPlayer.currentTime - hostTimeAtUpdate);
+        // Only sync if a current time and timestamp are provided
+        if (state.currentTime && state.timestamp) {
+            const now = Date.now();
+            const hostTimeAtUpdate = (state.currentTime + (now - state.timestamp) / 1000);
+            const timeDifference = Math.abs(listenerPlayer.currentTime - hostTimeAtUpdate);
 
-        if (timeDifference > syncThreshold) {
-            listenerPlayer.currentTime = hostTimeAtUpdate;
-            console.log(`Synced listener time. Difference was ${timeDifference.toFixed(2)}s.`);
+            if (timeDifference > syncThreshold) {
+                listenerPlayer.currentTime = hostTimeAtUpdate;
+                log(`時間を同期しました。誤差: ${timeDifference.toFixed(2)}s.`);
+            }
         }
 
         if (state.isPlaying) {
-            listenerPlayer.play().catch(e => console.error("Play failed:", e));
+            listenerPlayer.play().catch(e => {
+                console.error("Play failed:", e);
+                log("再生に失敗しました: " + e.message);
+            });
         } else {
             listenerPlayer.pause();
+            log("ホストが一時停止しました。");
         }
     }
 
@@ -258,6 +288,7 @@
         hostContent.classList.remove('hidden');
         musicPlayer.src = "https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3"; // Default track
         showDialog("あなたはホストとして開始しました。音楽を選択して再生してください。", "👑");
+        log("ホストモードを開始しました。");
     });
 
     joinBtn.addEventListener('click', () => {
@@ -266,6 +297,7 @@
         listenerContent.classList.remove('hidden');
         listenForHostChanges();
         showDialog("あなたはリスナーとして参加しました。ホストの音楽を待ちます。", "🎧");
+        log("リスナーモードを開始しました。");
     });
 
     musicButtons.forEach(button => {
@@ -279,6 +311,7 @@
                 audioUrl: audioSrc,
                 timestamp: Date.now()
             });
+            log("音楽の選択と再生を開始しました。");
         });
     });
 
@@ -290,6 +323,7 @@
                 audioUrl: musicPlayer.src,
                 timestamp: Date.now()
             });
+            log("ホストが再生しました。");
         }
     });
 
@@ -301,6 +335,7 @@
                 audioUrl: musicPlayer.src,
                 timestamp: Date.now()
             });
+            log("ホストが一時停止しました。");
         }
     });
 
@@ -312,6 +347,7 @@
                 audioUrl: musicPlayer.src,
                 timestamp: Date.now()
             });
+            log("ホストがシークしました。");
         }
     });
 
