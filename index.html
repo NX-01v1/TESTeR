@@ -33,7 +33,10 @@
         <!-- PeerID表示セクション -->
         <div class="mb-6">
             <h2 class="text-xl font-semibold mb-2">あなたのID</h2>
-            <p id="myPeerId" class="text-2xl font-mono p-4 bg-gray-200 rounded-lg break-all"></p>
+            <div class="flex items-center justify-center space-x-2">
+                <p id="myPeerId" class="text-2xl font-mono p-4 bg-gray-200 rounded-lg break-all flex-grow"></p>
+                <button id="copyBtn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-300">コピー</button>
+            </div>
         </div>
 
         <!-- 画面共有ボタン -->
@@ -72,6 +75,9 @@
         const remoteVideo = document.getElementById('remoteVideo');
         const localVideo = document.getElementById('localVideo');
         const messageElement = document.getElementById('message');
+        const copyBtn = document.getElementById('copyBtn');
+
+        let localStream = null;
 
         // メッセージを表示する関数
         function showMessage(text, type = 'info') {
@@ -92,29 +98,18 @@
             showMessage('IDが生成されました。接続を待機中です。');
         });
 
-        // 画面共有ボタンのクリックイベント
+        // 画面共有を開始する際にストリームを取得
         startSharingBtn.addEventListener('click', async () => {
             try {
                 // 画面共有のストリームを取得
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-                localVideo.srcObject = stream;
+                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
                 
-                // 他のユーザーからの接続を待機
-                peer.on('call', (call) => {
-                    // 呼び出しに応答し、ローカルストリームを送信
-                    call.answer(stream);
-                    showMessage('接続が確立されました。');
-                    
-                    // リモートストリームを受信
-                    call.on('stream', (remoteStream) => {
-                        remoteVideo.srcObject = remoteStream;
-                    });
-                });
-
                 // UIの更新
                 startSharingBtn.classList.add('hidden');
                 stopSharingBtn.classList.remove('hidden');
-                showMessage('画面共有を開始しました。');
+                showMessage('画面共有を開始しました。相手からの接続を待っています。');
+
             } catch (err) {
                 console.error("画面共有の取得エラー:", err);
                 showMessage('画面共有を開始できませんでした。ブラウザの権限を確認してください。', 'error');
@@ -123,8 +118,11 @@
 
         // 共有停止ボタンのクリックイベント
         stopSharingBtn.addEventListener('click', () => {
-            const tracks = localVideo.srcObject.getTracks();
-            tracks.forEach(track => track.stop());
+            if (localStream) {
+                const tracks = localStream.getTracks();
+                tracks.forEach(track => track.stop());
+                localStream = null;
+            }
             localVideo.srcObject = null;
             remoteVideo.srcObject = null;
             
@@ -134,12 +132,50 @@
             messageElement.classList.add('hidden');
         });
 
+        // IDコピーボタンのクリックイベント
+        copyBtn.addEventListener('click', () => {
+            const idToCopy = myPeerIdElement.textContent;
+            if (idToCopy) {
+                // Clipboard APIを使用してテキストをコピー
+                navigator.clipboard.writeText(idToCopy).then(() => {
+                    showMessage('IDがコピーされました！');
+                }).catch(err => {
+                    console.error('コピーに失敗しました:', err);
+                    showMessage('コピーに失敗しました。', 'error');
+                });
+            }
+        });
+
+
+        // 他のユーザーからの呼び出しを常に待機する
+        peer.on('call', (call) => {
+            showMessage('着信がありました。');
+            
+            // 画面共有が開始されている場合のみ、ストリームで応答
+            if (localStream) {
+                call.answer(localStream);
+            } else {
+                // ストリームがない場合でも応答（ストリームは後で追加）
+                call.answer();
+            }
+
+            // リモートストリームを受信
+            call.on('stream', (remoteStream) => {
+                remoteVideo.srcObject = remoteStream;
+                showMessage('接続が確立されました。');
+            });
+
+            call.on('close', () => {
+                showMessage('接続が終了しました。');
+            });
+        });
+
         // 接続ボタンのクリックイベント
         connectBtn.addEventListener('click', () => {
             const remotePeerId = peerIdInput.value;
             if (remotePeerId) {
-                // 相手に接続要求を送信
-                const call = peer.call(remotePeerId, localVideo.srcObject);
+                // 相手に接続要求を送信。この時点ではストリームは渡さない
+                const call = peer.call(remotePeerId, localStream);
                 showMessage('接続中です...');
 
                 call.on('stream', (remoteStream) => {
