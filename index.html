@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Music Sync</title>
+    <!-- Tailwind CSSをCDNで読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QRコード生成ライブラリ -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
-    <!-- jsQRの代わりにInstascanを使用 -->
-    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+    <!-- html5-qrcodeライブラリを使用 -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
@@ -52,15 +54,6 @@
             align-items: center;
             margin-top: 1rem;
         }
-        #scannerHost, #scannerClient {
-            width: 100%;
-            height: auto;
-            border-radius: 1rem;
-            margin-top: 1rem;
-        }
-        #hostOfferTextarea, #answerTextarea, #offerTextarea, #clientAnswerTextarea {
-            display: none;
-        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -70,22 +63,22 @@
             みんなで音楽を同期して聴こう！
         </p>
 
-        <!-- Role Selection -->
+        <!-- ロール選択セクション -->
         <div id="roleSelection" class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
             <button id="startHostButton" class="flex-1 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">ホストとして始める</button>
             <button id="startClientButton" class="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">参加者として参加</button>
         </div>
 
-        <!-- Main App Section (Initially Hidden) -->
+        <!-- メインアプリセクション (最初は非表示) -->
         <div id="mainApp" class="hidden space-y-6">
-            <!-- Connection Status -->
+            <!-- 接続ステータス表示 -->
             <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
                 <p id="connectionStatus" class="text-center font-medium">
                     接続していません
                 </p>
             </div>
 
-            <!-- File Input Section (Host Only) -->
+            <!-- ファイル入力セクション (ホストのみ) -->
             <div id="fileInputSection" class="hidden">
                 <label for="fileInput" class="file-input-label">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -96,7 +89,7 @@
                 <input type="file" id="fileInput" accept="audio/*" class="hidden">
             </div>
 
-            <!-- File Info & Playback -->
+            <!-- ファイル情報と再生コンポーネント -->
             <div id="fileInfo" class="hidden p-4 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
                 <p class="font-semibold text-indigo-700">選択したファイル:</p>
                 <p id="fileName" class="text-gray-800 break-words"></p>
@@ -107,27 +100,24 @@
                 ホストが再生を開始するのを待っています...
             </div>
             
-            <!-- Host Playback Controls -->
+            <!-- ホスト再生コントロール -->
             <div id="hostPlaybackControls" class="hidden flex justify-center space-x-4">
-                <button id="playButton" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                <button id="playButton" disabled class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                 </button>
-                <button id="pauseButton" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                <button id="pauseButton" disabled class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                 </button>
             </div>
 
-            <!-- Control Buttons -->
-            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                <button id="sendDataButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    参加者に同期
-                </button>
+            <!-- 操作ボタン -->
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
                 <button id="disconnectButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
                     接続を切断
                 </button>
             </div>
 
-            <!-- Host Section -->
+            <!-- ホストセクション -->
             <div id="hostSection" class="hidden">
                 <p class="text-sm font-medium text-center text-gray-500">
                     参加者に見せてスキャンしてもらってください:
@@ -138,23 +128,29 @@
                     参加者のQRコードをスキャンして接続:
                 </p>
                 <div class="mt-2 text-center">
-                    <button id="scanButtonHost" class="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
+                    <label for="cameraSelectHost" class="text-sm font-medium text-gray-700">使用するカメラを選択:</label>
+                    <select id="cameraSelectHost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></select>
+                    <button id="scanButtonHost" class="w-full mt-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
                         スキャンして接続
                     </button>
-                    <video id="scannerHost" class="rounded-xl"></video>
+                    <!-- スキャナーのコンテナ -->
+                    <div id="qr-reader-host" class="hidden mt-4"></div>
                 </div>
             </div>
 
-            <!-- Client Section -->
+            <!-- 参加者セクション -->
             <div id="clientSection" class="hidden">
                 <p class="text-sm font-medium text-center text-gray-500">
                     ホストのQRコードをスキャンしてください:
                 </p>
                 <div class="mt-2 text-center">
-                    <button id="scanButtonClient" class="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                    <label for="cameraSelectClient" class="text-sm font-medium text-gray-700">使用するカメラを選択:</label>
+                    <select id="cameraSelectClient" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></select>
+                    <button id="scanButtonClient" class="w-full mt-2 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
                         スキャンして回答を生成
                     </button>
-                    <video id="scannerClient" class="rounded-xl"></video>
+                    <!-- スキャナーのコンテナ -->
+                    <div id="qr-reader-client" class="hidden mt-4"></div>
                 </div>
                 
                 <p class="text-sm font-medium text-center text-gray-500 mt-4">
@@ -164,7 +160,7 @@
             </div>
         </div>
 
-        <!-- Modal for messages -->
+        <!-- メッセージ用モーダル -->
         <div id="messageModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
             <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-sm">
                 <h3 id="modalTitle" class="text-xl font-semibold mb-4 text-center"></h3>
@@ -176,6 +172,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // UI要素の取得
             const roleSelection = document.getElementById('roleSelection');
             const mainApp = document.getElementById('mainApp');
             const startHostButton = document.getElementById('startHostButton');
@@ -188,20 +185,21 @@
             const audioPlayer = document.getElementById('audioPlayer');
             const clientPlaybackStatus = document.getElementById('clientPlaybackStatus');
             const connectionStatus = document.getElementById('connectionStatus');
-            const sendDataButton = document.getElementById('sendDataButton');
             const disconnectButton = document.getElementById('disconnectButton');
             
             const hostSection = document.getElementById('hostSection');
             const qrCodeHost = document.getElementById('qrCodeHost');
             const scanButtonHost = document.getElementById('scanButtonHost');
-            const scannerHost = document.getElementById('scannerHost');
+            const cameraSelectHost = document.getElementById('cameraSelectHost');
+            const qrReaderHostDiv = document.getElementById('qr-reader-host');
             const hostPlaybackControls = document.getElementById('hostPlaybackControls');
             const playButton = document.getElementById('playButton');
             const pauseButton = document.getElementById('pauseButton');
             
             const clientSection = document.getElementById('clientSection');
             const scanButtonClient = document.getElementById('scanButtonClient');
-            const scannerClient = document.getElementById('scannerClient');
+            const cameraSelectClient = document.getElementById('cameraSelectClient');
+            const qrReaderClientDiv = document.getElementById('qr-reader-client');
             const qrCodeClient = document.getElementById('qrCodeClient');
 
             const messageModal = document.getElementById('messageModal');
@@ -209,6 +207,7 @@
             const modalMessage = document.getElementById('modalMessage');
             const modalCloseButton = document.getElementById('modalCloseButton');
 
+            // WebRTC ICEサーバー設定
             const iceServers = {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
@@ -216,13 +215,21 @@
                 ]
             };
 
+            // アプリケーションの状態変数
             let peerConnection = null;
             let dataChannel = null;
             let fileData = null;
+            let fileMimeType = null;
             let isHost = false;
             let isConnected = false;
-            let stream = null;
+            let hostScanner = null;
+            let clientScanner = null;
 
+            /**
+             * カスタムモーダルを表示する関数
+             * @param {string} title モーダルのタイトル
+             * @param {string} message モーダルのメッセージ
+             */
             function showModal(title, message) {
                 modalTitle.textContent = title;
                 modalMessage.textContent = message;
@@ -232,17 +239,60 @@
             modalCloseButton.onclick = () => {
                 messageModal.classList.add('hidden');
             };
+            
+            /**
+             * 利用可能なカメラデバイスを取得し、セレクトボックスに表示する
+             */
+            async function getDevicesAndPopulateSelectors() {
+                try {
+                    const devices = await Html5Qrcode.getCameras();
+                    if (devices && devices.length > 0) {
+                        devices.forEach(device => {
+                            const optionHost = document.createElement('option');
+                            optionHost.value = device.id;
+                            optionHost.textContent = device.label || `Camera ${cameraSelectHost.length + 1}`;
+                            cameraSelectHost.appendChild(optionHost);
 
+                            const optionClient = document.createElement('option');
+                            optionClient.value = device.id;
+                            optionClient.textContent = device.label || `Camera ${cameraSelectClient.length + 1}`;
+                            cameraSelectClient.appendChild(optionClient);
+                        });
+                    } else {
+                        showModal('エラー', 'カメラが見つかりませんでした。');
+                    }
+                } catch (e) {
+                    showModal('エラー', 'カメラへのアクセス権限がありません。');
+                    console.error('getCameras() error:', e);
+                }
+            }
+
+            /**
+             * QRコードスキャナーを停止する
+             * @param {object} scanner 停止するスキャナーインスタンス
+             */
+            function stopScanner(scanner) {
+                if (scanner && scanner.getState() === Html5QrcodeScannerState.SCANNING) {
+                    scanner.stop().catch(err => {
+                        console.error("Failed to stop scanner:", err);
+                    });
+                }
+            }
+
+            /**
+             * WebRTC PeerConnectionを初期化する
+             */
             function createPeerConnection() {
                 peerConnection = new RTCPeerConnection(iceServers);
                 
+                // ICE候補が生成されたときのイベント
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        // このイベントは複数回発生する場合があります。
-                        // ICEギャザリングが完了した後、完全なSDPと候補の交換を一度に処理します。
+                        // このイベントは複数回発生しますが、シンプルにするためギャザリング完了後にまとめて処理します
                     }
                 };
                 
+                // ICEギャザリングが完了したときのイベント
                 peerConnection.onicegatheringstatechange = () => {
                     if (peerConnection.iceGatheringState === 'complete') {
                         console.log('ICE gathering complete');
@@ -253,6 +303,7 @@
                             qr.make();
                             qrCodeHost.innerHTML = qr.createImgTag(5);
                             showModal('接続情報生成完了', 'ホストの接続情報が生成されました。参加者にQRコードを見せてください。');
+                            stopScanner(hostScanner);
                         } else {
                             const answerSDP = JSON.stringify(peerConnection.localDescription);
                             const qr = qrcode(0, 'L');
@@ -260,35 +311,45 @@
                             qr.make();
                             qrCodeClient.innerHTML = qr.createImgTag(5);
                             showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せてください。');
+                            stopScanner(clientScanner);
                         }
                     }
                 };
 
+                // 接続状態が変化したときのイベント
                 peerConnection.onconnectionstatechange = () => {
                     if (peerConnection.connectionState === 'connected') {
                         isConnected = true;
                         connectionStatus.textContent = '接続済み';
-                        sendDataButton.disabled = false;
                         disconnectButton.disabled = false;
-                        showModal('接続成功', '参加者と接続しました。音楽を再生してください。');
+                        if(isHost) {
+                            playButton.disabled = false;
+                            pauseButton.disabled = false;
+                            showModal('接続成功', '参加者と接続しました。音楽を再生してください。');
+                            qrReaderHostDiv.classList.add('hidden');
+                        } else {
+                            showModal('接続成功', 'ホストと接続しました。ホストからの音楽ファイルの受信を待機します。');
+                            qrReaderClientDiv.classList.add('hidden');
+                        }
                     } else {
                         isConnected = false;
                         connectionStatus.textContent = '切断済み';
-                        sendDataButton.disabled = true;
                         disconnectButton.disabled = true;
+                        playButton.disabled = true;
+                        pauseButton.disabled = true;
                     }
                 };
                 
+                // ICE接続状態が変化したときのイベント
                 peerConnection.oniceconnectionstatechange = () => {
                     if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
                         connectionStatus.textContent = '接続が切断されました';
-                        sendDataButton.disabled = true;
                         disconnectButton.disabled = true;
                     }
                 };
             }
 
-            // ホストとして始める
+            // ホストとして始めるボタン
             startHostButton.addEventListener('click', async () => {
                 isHost = true;
                 roleSelection.classList.add('hidden');
@@ -299,23 +360,26 @@
                 
                 createPeerConnection();
 
+                // ホスト側でデータチャネルを作成
                 dataChannel = peerConnection.createDataChannel('audio-sync');
                 dataChannel.onopen = () => { console.log('Data Channel is open!'); };
                 dataChannel.onmessage = async (event) => {
                     const message = JSON.parse(event.data);
+                    // 参加者からファイル転送リクエストを受信した場合
                     if (message.type === 'requestAudio') {
                         if (fileData) {
+                            showModal('ファイル送信中', '参加者に音楽ファイルを送信しています。');
                             // メッセージサイズの上限を避けるためにデータをチャンクに分割
                             const chunkSize = 16 * 1024; // 16KB
                             const base64Data = fileData.split(',')[1];
                             for (let i = 0; i < base64Data.length; i += chunkSize) {
                                 dataChannel.send(JSON.stringify({
                                     type: 'audio_chunk',
+                                    mimeType: fileMimeType,
                                     chunk: base64Data.slice(i, i + chunkSize),
                                     isLast: (i + chunkSize) >= base64Data.length
                                 }));
                             }
-                            showModal('ファイル送信中', '参加者に音楽ファイルを送信しています。');
                         } else {
                             showModal('エラー', 'ホストはまだ音楽ファイルを選択していません。');
                         }
@@ -323,28 +387,12 @@
                 };
                 dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
                 
+                // オファーを作成してローカルディスクリプションに設定
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
-
-                // ホストの再生・一時停止ボタンのイベントリスナーを設定
-                playButton.addEventListener('click', () => {
-                    if (isConnected && dataChannel && dataChannel.readyState === 'open') {
-                        audioPlayer.play();
-                        const time = audioPlayer.currentTime;
-                        dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
-                    }
-                });
-
-                pauseButton.addEventListener('click', () => {
-                    if (isConnected && dataChannel && dataChannel.readyState === 'open') {
-                        audioPlayer.pause();
-                        const time = audioPlayer.currentTime;
-                        dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
-                    }
-                });
             });
 
-            // 参加者として参加
+            // 参加者として参加ボタン
             startClientButton.addEventListener('click', () => {
                 isHost = false;
                 roleSelection.classList.add('hidden');
@@ -354,13 +402,16 @@
                 
                 createPeerConnection();
 
+                // 参加者側でデータチャネルを受信
                 peerConnection.ondatachannel = (event) => {
                     dataChannel = event.channel;
                     let receivedChunks = [];
                     dataChannel.onopen = () => {
                         console.log('Data Channel is open!');
                         // クライアント側からファイルの転送をリクエスト
-                        dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
+                        if(isConnected) {
+                             dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
+                        }
                     };
                     dataChannel.onmessage = async (event) => {
                         const message = JSON.parse(event.data);
@@ -368,13 +419,13 @@
                             receivedChunks.push(message.chunk);
                             if (message.isLast) {
                                 const base64Data = receivedChunks.join('');
-                                const mimeType = 'audio/mpeg'; // 音声/mpegを仮定
+                                const mimeType = message.mimeType;
                                 fileData = `data:${mimeType};base64,${base64Data}`;
                                 audioPlayer.src = fileData;
                                 audioPlayer.classList.remove('hidden');
                                 fileInfoDiv.classList.remove('hidden');
                                 fileNameSpan.textContent = '受信したファイル';
-                                clientPlaybackStatus.classList.remove('hidden'); // ステータスメッセージを表示
+                                clientPlaybackStatus.classList.remove('hidden');
                                 showModal('ファイル受信', 'ホストから音楽ファイルを受信しました。');
                                 receivedChunks = [];
                             }
@@ -398,115 +449,134 @@
                 };
             });
             
-            // ファイル選択
+            // ホストの再生・一時停止ボタンのイベントリスナーを設定
+            playButton.addEventListener('click', () => {
+                if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                    audioPlayer.play();
+                    const time = audioPlayer.currentTime;
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
+                }
+            });
+
+            pauseButton.addEventListener('click', () => {
+                if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                    audioPlayer.pause();
+                    const time = audioPlayer.currentTime;
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
+                }
+            });
+            
+            // ファイル入力イベント
             fileInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         fileData = event.target.result;
+                        fileMimeType = file.type;
                         fileInfoDiv.classList.remove('hidden');
                         fileNameSpan.textContent = file.name;
                         audioPlayer.src = URL.createObjectURL(file);
                         audioPlayer.classList.remove('hidden');
-                        hostPlaybackControls.classList.remove('hidden'); // ホストはカスタムコントロールを表示
+                        hostPlaybackControls.classList.remove('hidden');
+                        playButton.disabled = false;
+                        pauseButton.disabled = false;
                     };
                     reader.readAsDataURL(file);
                 }
             });
 
-            // ホストのデータ送信
-            sendDataButton.addEventListener('click', () => {
-                if (!fileData) {
-                    showModal('エラー', '音楽ファイルが選択されていません。');
-                    return;
-                }
-                if (dataChannel && dataChannel.readyState === 'open') {
-                    // ファイル転送を開始するようクライアントにリクエストを送信
-                    dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
-                } else {
-                    showModal('エラー', 'データチャネルが開いていません。接続を確認してください。');
-                }
-            });
-
-            // 接続切断
+            // 切断ボタン
             disconnectButton.addEventListener('click', () => {
                 if (peerConnection) {
                     peerConnection.close();
                 }
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
+                stopScanner(hostScanner);
+                stopScanner(clientScanner);
                 window.location.reload();
             });
 
-            // ホスト側のQRコードスキャン
+            // ホスト側のQRコードスキャンボタン
             scanButtonHost.addEventListener('click', async () => {
-                try {
-                    // Instascanの新しいインスタンスを作成し、カメラにビデオ要素をアタッチ
-                    let scanner = new Instascan.Scanner({ video: scannerHost });
-                    
-                    scanner.addListener('scan', async function(content) {
-                        scanner.stop(); // QRコードを読み取ったらスキャナを停止
-                        try {
-                            const remoteAnswer = JSON.parse(content);
-                            await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
-                            showModal('接続完了', '参加者との接続が確立されました！');
-                            hostSection.classList.add('hidden');
-                        } catch (e) {
-                            showModal('エラー', '無効なQRコードです。');
-                            console.error('Failed to set remote answer:', e);
-                        }
-                    });
-
-                    // カメラのリストを取得し、最初に見つかったカメラを起動
-                    const cameras = await Instascan.Camera.getCameras();
-                    if (cameras.length > 0) {
-                        scanner.start(cameras[0]);
-                    } else {
-                        showModal('エラー', 'カメラが見つかりませんでした。');
+                qrReaderHostDiv.classList.remove('hidden');
+                const selectedCameraId = cameraSelectHost.value;
+                hostScanner = new Html5Qrcode('qr-reader-host');
+                hostScanner.start(
+                    selectedCameraId,
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 }
+                    },
+                    (decodedText, decodedResult) => {
+                        // 成功コールバック
+                        hostScanner.stop().then(() => {
+                            try {
+                                const remoteAnswer = JSON.parse(decodedText);
+                                peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+                                showModal('接続完了', '参加者との接続が確立されました！');
+                                hostSection.classList.add('hidden');
+                                qrReaderHostDiv.classList.add('hidden');
+                            } catch (e) {
+                                showModal('エラー', '無効なQRコードです。');
+                                console.error('Failed to set remote answer:', e);
+                            }
+                        }).catch(err => {
+                            console.error("Failed to stop scanner after success:", err);
+                        });
+                    },
+                    (errorMessage) => {
+                        // エラーコールバック（リアルタイムでQRが見つからない場合）
+                        // 特に何もしない
                     }
-                } catch (e) {
-                    showModal('エラー', 'カメラへのアクセスが拒否されました。');
-                    console.error('Camera access denied:', e);
-                }
+                ).catch(err => {
+                    showModal('エラー', 'カメラの起動に失敗しました。アクセスを許可してください。');
+                    console.error("Camera start failed:", err);
+                });
             });
 
-            // 参加者側のQRコードスキャン
+            // 参加者側のQRコードスキャンボタン
             scanButtonClient.addEventListener('click', async () => {
-                try {
-                    // Instascanの新しいインスタンスを作成し、カメラにビデオ要素をアタッチ
-                    let scanner = new Instascan.Scanner({ video: scannerClient });
-                    
-                    scanner.addListener('scan', async function(content) {
-                        scanner.stop(); // QRコードを読み取ったらスキャナを停止
-                        try {
-                            const remoteOffer = JSON.parse(content);
-                            await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
-                            
-                            const answer = await peerConnection.createAnswer();
-                            await peerConnection.setLocalDescription(answer);
-                            
-                            clientSection.classList.remove('hidden');
-                            showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せてください。');
-                        } catch (e) {
-                            showModal('エラー', '無効なQRコードです。');
-                            console.error('Failed to set remote offer:', e);
-                        }
-                    });
-
-                    // カメラのリストを取得し、最初に見つかったカメラを起動
-                    const cameras = await Instascan.Camera.getCameras();
-                    if (cameras.length > 0) {
-                        scanner.start(cameras[0]);
-                    } else {
-                        showModal('エラー', 'カメラが見つかりませんでした。');
+                qrReaderClientDiv.classList.remove('hidden');
+                const selectedCameraId = cameraSelectClient.value;
+                clientScanner = new Html5Qrcode('qr-reader-client');
+                clientScanner.start(
+                    selectedCameraId,
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 }
+                    },
+                    (decodedText, decodedResult) => {
+                        // 成功コールバック
+                        clientScanner.stop().then(async () => {
+                            try {
+                                const remoteOffer = JSON.parse(decodedText);
+                                await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
+                                
+                                const answer = await peerConnection.createAnswer();
+                                await peerConnection.setLocalDescription(answer);
+                                
+                                clientSection.classList.remove('hidden');
+                                showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せてください。');
+                            } catch (e) {
+                                showModal('エラー', '無効なQRコードです。');
+                                console.error('Failed to set remote offer:', e);
+                            }
+                        }).catch(err => {
+                            console.error("Failed to stop scanner after success:", err);
+                        });
+                    },
+                    (errorMessage) => {
+                        // エラーコールバック
+                        // 特に何もしない
                     }
-                } catch (e) {
-                    showModal('エラー', 'カメラへのアクセスが拒否されました。');
-                    console.error('Camera access denied:', e);
-                }
+                ).catch(err => {
+                    showModal('エラー', 'カメラの起動に失敗しました。アクセスを許可してください。');
+                    console.error("Camera start failed:", err);
+                });
             });
+
+            // ページ読み込み時にカメラデバイスを列挙
+            getDevicesAndPopulateSelectors();
         });
     </script>
 </body>
