@@ -9,7 +9,7 @@
     <!-- QRコード生成ライブラリ -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
     <!-- html5-qrcodeライブラリを使用 -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
@@ -53,6 +53,20 @@
             justify-content: center;
             align-items: center;
             margin-top: 1rem;
+        }
+        /* スキャナーのビデオ要素のスタイル */
+        #qr-reader-host__dashboard_section,
+        #qr-reader-client__dashboard_section {
+            padding: 0;
+        }
+        .code-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            word-break: break-all;
+            white-space: pre-wrap;
+            position: relative;
         }
     </style>
 </head>
@@ -118,45 +132,81 @@
             </div>
 
             <!-- ホストセクション -->
-            <div id="hostSection" class="hidden">
-                <p class="text-sm font-medium text-center text-gray-500">
-                    参加者に見せてスキャンしてもらってください:
-                </p>
-                <div id="qrCodeHost" class="p-2 border border-gray-300 rounded-lg"></div>
+            <div id="hostSection" class="hidden space-y-4">
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm font-medium text-center text-gray-500 mb-2">
+                        参加者に見せてスキャンしてもらってください:
+                    </p>
+                    <div id="qrCodeHost" class="p-2 border border-gray-300 rounded-lg"></div>
+                    <div class="mt-4 flex items-center space-x-2">
+                        <input id="hostCode" type="text" readonly class="flex-1 p-2 rounded-lg border border-gray-300 text-sm bg-gray-100" />
+                        <button id="copyHostCodeButton" class="bg-indigo-500 text-white p-2 rounded-lg text-sm hover:bg-indigo-600 transition">コピー</button>
+                    </div>
+                </div>
                 
-                <p class="text-sm font-medium text-center text-gray-500 mt-4">
-                    参加者のQRコードをスキャンして接続:
-                </p>
-                <div class="mt-2 text-center">
-                    <label for="cameraSelectHost" class="text-sm font-medium text-gray-700">使用するカメラを選択:</label>
-                    <select id="cameraSelectHost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></select>
-                    <button id="scanButtonHost" class="w-full mt-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
-                        スキャンして接続
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm font-medium text-center text-gray-500 mb-2">
+                        参加者のQRコードをスキャンして接続:
+                    </p>
+                    <div class="mt-2 text-center">
+                        <label for="cameraSelectHost" class="text-sm font-medium text-gray-700">使用するカメラを選択:</label>
+                        <select id="cameraSelectHost" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></select>
+                        <button id="scanButtonHost" class="w-full mt-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
+                            スキャンして接続
+                        </button>
+                        <!-- スキャナーのコンテナ -->
+                        <div id="qr-reader-host" class="hidden mt-4"></div>
+                    </div>
+                </div>
+                
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm font-medium text-center text-gray-500 mb-2">
+                        または、参加者のコードを貼り付けて接続:
+                    </p>
+                    <textarea id="pasteClientCode" class="w-full h-24 p-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring focus:ring-indigo-200 focus:border-indigo-300"></textarea>
+                    <button id="connectWithClientCodeButton" class="w-full mt-2 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                        コードで接続
                     </button>
-                    <!-- スキャナーのコンテナ -->
-                    <div id="qr-reader-host" class="hidden mt-4"></div>
                 </div>
             </div>
 
             <!-- 参加者セクション -->
-            <div id="clientSection" class="hidden">
-                <p class="text-sm font-medium text-center text-gray-500">
-                    ホストのQRコードをスキャンしてください:
-                </p>
-                <div class="mt-2 text-center">
-                    <label for="cameraSelectClient" class="text-sm font-medium text-gray-700">使用するカメラを選択:</label>
-                    <select id="cameraSelectClient" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></select>
-                    <button id="scanButtonClient" class="w-full mt-2 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
-                        スキャンして回答を生成
-                    </button>
-                    <!-- スキャナーのコンテナ -->
-                    <div id="qr-reader-client" class="hidden mt-4"></div>
+            <div id="clientSection" class="hidden space-y-4">
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm font-medium text-center text-gray-500 mb-2">
+                        ホストのQRコードをスキャンしてください:
+                    </p>
+                    <div class="mt-2 text-center">
+                        <label for="cameraSelectClient" class="text-sm font-medium text-gray-700">使用するカメラを選択:</label>
+                        <select id="cameraSelectClient" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></select>
+                        <button id="scanButtonClient" class="w-full mt-2 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                            スキャンして回答を生成
+                        </button>
+                        <!-- スキャナーのコンテナ -->
+                        <div id="qr-reader-client" class="hidden mt-4"></div>
+                    </div>
                 </div>
-                
-                <p class="text-sm font-medium text-center text-gray-500 mt-4">
-                    生成されたQRコードをホストに見せてください:
-                </p>
-                <div id="qrCodeClient" class="p-2 border border-gray-300 rounded-lg"></div>
+
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm font-medium text-center text-gray-500 mb-2">
+                        または、ホストのコードを貼り付けて回答を生成:
+                    </p>
+                    <textarea id="pasteHostCode" class="w-full h-24 p-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring focus:ring-indigo-200 focus:border-indigo-300"></textarea>
+                    <button id="createAnswerWithHostCodeButton" class="w-full mt-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
+                        コードで回答を生成
+                    </button>
+                </div>
+
+                <div id="qrCodeClientSection" class="p-4 bg-gray-50 rounded-lg hidden">
+                    <p class="text-sm font-medium text-center text-gray-500 mb-2" id="qrClientTitle">
+                        生成されたQRコードをホストに見せてください:
+                    </p>
+                    <div id="qrCodeClient" class="p-2 border border-gray-300 rounded-lg"></div>
+                    <div class="mt-4 flex items-center space-x-2">
+                        <input id="clientCode" type="text" readonly class="flex-1 p-2 rounded-lg border border-gray-300 text-sm bg-gray-100" />
+                        <button id="copyClientCodeButton" class="bg-indigo-500 text-white p-2 rounded-lg text-sm hover:bg-indigo-600 transition">コピー</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -195,12 +245,22 @@
             const hostPlaybackControls = document.getElementById('hostPlaybackControls');
             const playButton = document.getElementById('playButton');
             const pauseButton = document.getElementById('pauseButton');
+            const hostCodeInput = document.getElementById('hostCode');
+            const copyHostCodeButton = document.getElementById('copyHostCodeButton');
+            const pasteClientCodeTextarea = document.getElementById('pasteClientCode');
+            const connectWithClientCodeButton = document.getElementById('connectWithClientCodeButton');
             
             const clientSection = document.getElementById('clientSection');
             const scanButtonClient = document.getElementById('scanButtonClient');
             const cameraSelectClient = document.getElementById('cameraSelectClient');
             const qrReaderClientDiv = document.getElementById('qr-reader-client');
             const qrCodeClient = document.getElementById('qrCodeClient');
+            const qrCodeClientSection = document.getElementById('qrCodeClientSection');
+            const qrClientTitle = document.getElementById('qrClientTitle');
+            const pasteHostCodeTextarea = document.getElementById('pasteHostCode');
+            const createAnswerWithHostCodeButton = document.getElementById('createAnswerWithHostCodeButton');
+            const clientCodeInput = document.getElementById('clientCode');
+            const copyClientCodeButton = document.getElementById('copyClientCodeButton');
 
             const messageModal = document.getElementById('messageModal');
             const modalTitle = document.getElementById('modalTitle');
@@ -224,6 +284,7 @@
             let isConnected = false;
             let hostScanner = null;
             let clientScanner = null;
+            let offerSdp = null;
 
             /**
              * カスタムモーダルを表示する関数
@@ -272,7 +333,7 @@
              * @param {object} scanner 停止するスキャナーインスタンス
              */
             function stopScanner(scanner) {
-                if (scanner && scanner.getState() === Html5QrcodeScannerState.SCANNING) {
+                if (scanner && scanner.getState() === 2) { // Html5QrcodeScannerState.SCANNING
                     scanner.stop().catch(err => {
                         console.error("Failed to stop scanner:", err);
                     });
@@ -288,7 +349,7 @@
                 // ICE候補が生成されたときのイベント
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        // このイベントは複数回発生しますが、シンプルにするためギャザリング完了後にまとめて処理します
+                        // シンプルにするため、ギャザリング完了後にまとめて処理
                     }
                 };
                 
@@ -297,12 +358,13 @@
                     if (peerConnection.iceGatheringState === 'complete') {
                         console.log('ICE gathering complete');
                         if (isHost) {
-                            const offerSDP = JSON.stringify(peerConnection.localDescription);
+                            offerSdp = JSON.stringify(peerConnection.localDescription);
                             const qr = qrcode(0, 'L');
-                            qr.addData(offerSDP);
+                            qr.addData(offerSdp);
                             qr.make();
                             qrCodeHost.innerHTML = qr.createImgTag(5);
-                            showModal('接続情報生成完了', 'ホストの接続情報が生成されました。参加者にQRコードを見せてください。');
+                            hostCodeInput.value = offerSdp;
+                            showModal('接続情報生成完了', 'ホストの接続情報が生成されました。参加者にQRコードを見せるか、コードを共有してください。');
                             stopScanner(hostScanner);
                         } else {
                             const answerSDP = JSON.stringify(peerConnection.localDescription);
@@ -310,7 +372,9 @@
                             qr.addData(answerSDP);
                             qr.make();
                             qrCodeClient.innerHTML = qr.createImgTag(5);
-                            showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せてください。');
+                            clientCodeInput.value = answerSDP;
+                            qrCodeClientSection.classList.remove('hidden');
+                            showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せるか、コードを共有してください。');
                             stopScanner(clientScanner);
                         }
                     }
@@ -326,10 +390,10 @@
                             playButton.disabled = false;
                             pauseButton.disabled = false;
                             showModal('接続成功', '参加者と接続しました。音楽を再生してください。');
-                            qrReaderHostDiv.classList.add('hidden');
+                            hostSection.classList.add('hidden');
                         } else {
                             showModal('接続成功', 'ホストと接続しました。ホストからの音楽ファイルの受信を待機します。');
-                            qrReaderClientDiv.classList.add('hidden');
+                            clientSection.classList.add('hidden');
                         }
                     } else {
                         isConnected = false;
@@ -345,6 +409,11 @@
                     if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
                         connectionStatus.textContent = '接続が切断されました';
                         disconnectButton.disabled = true;
+                        if(isHost) {
+                            showModal('接続切断', '参加者との接続が切断されました。');
+                        } else {
+                            showModal('接続切断', 'ホストとの接続が切断されました。');
+                        }
                     }
                 };
             }
@@ -514,8 +583,6 @@
                                 const remoteAnswer = JSON.parse(decodedText);
                                 peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
                                 showModal('接続完了', '参加者との接続が確立されました！');
-                                hostSection.classList.add('hidden');
-                                qrReaderHostDiv.classList.add('hidden');
                             } catch (e) {
                                 showModal('エラー', '無効なQRコードです。');
                                 console.error('Failed to set remote answer:', e);
@@ -526,7 +593,6 @@
                     },
                     (errorMessage) => {
                         // エラーコールバック（リアルタイムでQRが見つからない場合）
-                        // 特に何もしない
                     }
                 ).catch(err => {
                     showModal('エラー', 'カメラの起動に失敗しました。アクセスを許可してください。');
@@ -555,8 +621,7 @@
                                 const answer = await peerConnection.createAnswer();
                                 await peerConnection.setLocalDescription(answer);
                                 
-                                clientSection.classList.remove('hidden');
-                                showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せてください。');
+                                showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せるか、コードを共有してください。');
                             } catch (e) {
                                 showModal('エラー', '無効なQRコードです。');
                                 console.error('Failed to set remote offer:', e);
@@ -567,12 +632,63 @@
                     },
                     (errorMessage) => {
                         // エラーコールバック
-                        // 特に何もしない
                     }
                 ).catch(err => {
                     showModal('エラー', 'カメラの起動に失敗しました。アクセスを許可してください。');
                     console.error("Camera start failed:", err);
                 });
+            });
+
+            // ホスト側のコードコピーボタン
+            copyHostCodeButton.addEventListener('click', () => {
+                hostCodeInput.select();
+                document.execCommand('copy');
+                showModal('コピー完了', 'ホストの接続コードをクリップボードにコピーしました。');
+            });
+
+            // 参加者側のコード貼り付けボタン
+            connectWithClientCodeButton.addEventListener('click', () => {
+                const remoteAnswerCode = pasteClientCodeTextarea.value;
+                if (remoteAnswerCode) {
+                    try {
+                        const remoteAnswer = JSON.parse(remoteAnswerCode);
+                        peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+                        showModal('接続完了', '参加者との接続が確立されました！');
+                    } catch (e) {
+                        showModal('エラー', '無効な接続コードです。');
+                        console.error('Failed to set remote answer from code:', e);
+                    }
+                } else {
+                    showModal('エラー', '接続コードを貼り付けてください。');
+                }
+            });
+
+            // 参加者側のコードコピーボタン
+            copyClientCodeButton.addEventListener('click', () => {
+                clientCodeInput.select();
+                document.execCommand('copy');
+                showModal('コピー完了', '回答コードをクリップボードにコピーしました。');
+            });
+
+            // ホスト側のコード貼り付けボタン
+            createAnswerWithHostCodeButton.addEventListener('click', async () => {
+                const remoteOfferCode = pasteHostCodeTextarea.value;
+                if (remoteOfferCode) {
+                    try {
+                        const remoteOffer = JSON.parse(remoteOfferCode);
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
+                        
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+                        
+                        showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せるか、コードを共有してください。');
+                    } catch (e) {
+                        showModal('エラー', '無効な接続コードです。');
+                        console.error('Failed to set remote offer from code:', e);
+                    }
+                } else {
+                    showModal('エラー', 'ホストのコードを貼り付けてください。');
+                }
             });
 
             // ページ読み込み時にカメラデバイスを列挙
