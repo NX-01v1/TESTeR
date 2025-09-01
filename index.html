@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Music Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
@@ -41,6 +42,21 @@
             background-color: #eef2ff;
         }
         #fileInput {
+            display: none;
+        }
+        #qrCodeHost, #qrCodeClient {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 1rem;
+        }
+        #scannerHost, #scannerClient {
+            width: 100%;
+            height: auto;
+            border-radius: 1rem;
+            margin-top: 1rem;
+        }
+        #hostOfferTextarea, #answerTextarea, #offerTextarea, #clientAnswerTextarea {
             display: none;
         }
     </style>
@@ -112,53 +128,37 @@
             <!-- Host Section -->
             <div id="hostSection" class="hidden">
                 <p class="text-sm font-medium text-center text-gray-500">
-                    以下の情報をコピーして参加者に送ってください:
+                    参加者に見せてスキャンしてもらってください:
                 </p>
-                <div class="relative mt-2">
-                    <textarea id="hostOfferTextarea" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly></textarea>
-                    <button id="hostCopyButton" class="absolute top-2 right-2 p-2 text-gray-500 hover:text-indigo-500 transition duration-200 ease-in-out">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                        </svg>
-                    </button>
-                </div>
-
+                <div id="qrCodeHost" class="p-2 border border-gray-300 rounded-lg"></div>
+                
                 <p class="text-sm font-medium text-center text-gray-500 mt-4">
-                    参加者から受け取った情報をここに貼り付けて接続:
+                    参加者のQRコードをスキャンして接続:
                 </p>
-                <div class="relative mt-2">
-                    <textarea id="answerTextarea" placeholder="参加者の接続情報をここに貼り付けてください" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-green-500"></textarea>
-                    <button id="connectButton" class="w-full px-6 py-3 mt-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
-                        接続
+                <div class="mt-2 text-center">
+                    <button id="scanButtonHost" class="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
+                        スキャンして接続
                     </button>
+                    <video id="scannerHost" class="rounded-xl"></video>
                 </div>
             </div>
 
             <!-- Client Section -->
             <div id="clientSection" class="hidden">
                 <p class="text-sm font-medium text-center text-gray-500">
-                    ホストから受け取った情報をここに貼り付けてください:
+                    ホストのQRコードをスキャンしてください:
                 </p>
-                <div class="relative mt-2">
-                    <textarea id="offerTextarea" placeholder="ホストの接続情報をここに貼り付けてください" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-                    <button id="generateAnswerButton" class="w-full px-6 py-3 mt-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
-                        回答を生成
+                <div class="mt-2 text-center">
+                    <button id="scanButtonClient" class="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                        スキャンして回答を生成
                     </button>
+                    <video id="scannerClient" class="rounded-xl"></video>
                 </div>
                 
                 <p class="text-sm font-medium text-center text-gray-500 mt-4">
-                    以下の情報をコピーしてホストに送ってください:
+                    生成されたQRコードをホストに見せてください:
                 </p>
-                <div class="relative mt-2">
-                    <textarea id="clientAnswerTextarea" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-green-500" readonly></textarea>
-                    <button id="clientCopyButton" class="absolute top-2 right-2 p-2 text-gray-500 hover:text-green-500 transition duration-200 ease-in-out">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                        </svg>
-                    </button>
-                </div>
+                <div id="qrCodeClient" class="p-2 border border-gray-300 rounded-lg"></div>
             </div>
         </div>
 
@@ -172,6 +172,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.0.0/dist/jsQR.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const roleSelection = document.getElementById('roleSelection');
@@ -190,19 +191,17 @@
             const disconnectButton = document.getElementById('disconnectButton');
             
             const hostSection = document.getElementById('hostSection');
-            const hostOfferTextarea = document.getElementById('hostOfferTextarea');
-            const hostCopyButton = document.getElementById('hostCopyButton');
-            const answerTextarea = document.getElementById('answerTextarea');
-            const connectButton = document.getElementById('connectButton');
+            const qrCodeHost = document.getElementById('qrCodeHost');
+            const scanButtonHost = document.getElementById('scanButtonHost');
+            const scannerHost = document.getElementById('scannerHost');
             const hostPlaybackControls = document.getElementById('hostPlaybackControls');
             const playButton = document.getElementById('playButton');
             const pauseButton = document.getElementById('pauseButton');
             
             const clientSection = document.getElementById('clientSection');
-            const offerTextarea = document.getElementById('offerTextarea');
-            const generateAnswerButton = document.getElementById('generateAnswerButton');
-            const clientAnswerTextarea = document.getElementById('clientAnswerTextarea');
-            const clientCopyButton = document.getElementById('clientCopyButton');
+            const scanButtonClient = document.getElementById('scanButtonClient');
+            const scannerClient = document.getElementById('scannerClient');
+            const qrCodeClient = document.getElementById('qrCodeClient');
 
             const messageModal = document.getElementById('messageModal');
             const modalTitle = document.getElementById('modalTitle');
@@ -221,6 +220,9 @@
             let fileData = null;
             let isHost = false;
             let isConnected = false;
+            let hostScanner = null;
+            let clientScanner = null;
+            let stream = null;
 
             function showModal(title, message) {
                 modalTitle.textContent = title;
@@ -246,11 +248,19 @@
                     if (peerConnection.iceGatheringState === 'complete') {
                         console.log('ICE gathering complete');
                         if (isHost) {
-                            hostOfferTextarea.value = JSON.stringify(peerConnection.localDescription);
-                            showModal('接続情報生成完了', 'ホストの接続情報が生成されました。コピーして参加者に送ってください。');
+                            const offerSDP = JSON.stringify(peerConnection.localDescription);
+                            const qr = qrcode(0, 'L');
+                            qr.addData(offerSDP);
+                            qr.make();
+                            qrCodeHost.innerHTML = qr.createImgTag(5);
+                            showModal('接続情報生成完了', 'ホストの接続情報が生成されました。参加者にQRコードを見せてください。');
                         } else {
-                            clientAnswerTextarea.value = JSON.stringify(peerConnection.localDescription);
-                            showModal('回答情報生成完了', '回答情報が生成されました。コピーしてホストに送ってください。');
+                            const answerSDP = JSON.stringify(peerConnection.localDescription);
+                            const qr = qrcode(0, 'L');
+                            qr.addData(answerSDP);
+                            qr.make();
+                            qrCodeClient.innerHTML = qr.createImgTag(5);
+                            showModal('回答情報生成完了', '回答情報が生成されました。ホストにQRコードを見せてください。');
                         }
                     }
                 };
@@ -298,11 +308,12 @@
                         if (fileData) {
                             // Split data into chunks to avoid large message size limits
                             const chunkSize = 16 * 1024; // 16KB
-                            for (let i = 0; i < fileData.length; i += chunkSize) {
+                            const base64Data = fileData.split(',')[1];
+                            for (let i = 0; i < base64Data.length; i += chunkSize) {
                                 dataChannel.send(JSON.stringify({
                                     type: 'audio_chunk',
-                                    chunk: fileData.slice(i, i + chunkSize),
-                                    isLast: (i + chunkSize) >= fileData.length
+                                    chunk: base64Data.slice(i, i + chunkSize),
+                                    isLast: (i + chunkSize) >= base64Data.length
                                 }));
                             }
                             showModal('ファイル送信中', '参加者に音楽ファイルを送信しています。');
@@ -357,7 +368,9 @@
                         if (message.type === 'audio_chunk') {
                             receivedChunks.push(message.chunk);
                             if (message.isLast) {
-                                fileData = receivedChunks.join('');
+                                const base64Data = receivedChunks.join('');
+                                const mimeType = 'audio/mpeg'; // Assuming audio/mpeg for simplicity
+                                fileData = `data:${mimeType};base64,${base64Data}`;
                                 audioPlayer.src = fileData;
                                 audioPlayer.classList.remove('hidden');
                                 fileInfoDiv.classList.remove('hidden');
@@ -384,43 +397,6 @@
                         showModal('接続切断', 'ホストとの接続が切断されました。');
                     };
                 };
-            });
-            
-            // ホストがアンサーを受け取る
-            connectButton.addEventListener('click', async () => {
-                const answerSDP = answerTextarea.value;
-                if (!answerSDP) {
-                    showModal('エラー', '回答情報が入力されていません。');
-                    return;
-                }
-                try {
-                    const remoteAnswer = JSON.parse(answerSDP);
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
-                    showModal('接続完了', '参加者との接続が確立されました！');
-                    hostSection.classList.add('hidden');
-                } catch (e) {
-                    showModal('エラー', '無効な回答情報です。正しくコピー＆ペーストされているか確認してください。');
-                    console.error('Failed to set remote answer:', e);
-                }
-            });
-
-            // 参加者がオファーを受け取り、アンサーを生成
-            generateAnswerButton.addEventListener('click', async () => {
-                const offerSDP = offerTextarea.value;
-                if (!offerSDP) {
-                    showModal('エラー', '接続情報が入力されていません。');
-                    return;
-                }
-                try {
-                    const remoteOffer = JSON.parse(offerSDP);
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
-                    
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                } catch (e) {
-                    showModal('エラー', '無効な接続情報です。正しくコピー＆ペーストされているか確認してください。');
-                    console.error('Failed to set remote offer:', e);
-                }
             });
             
             // ファイル選択
@@ -459,19 +435,94 @@
                 if (peerConnection) {
                     peerConnection.close();
                 }
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
                 window.location.reload();
             });
 
-            // コピーボタン
-            hostCopyButton.addEventListener('click', () => {
-                hostOfferTextarea.select();
-                document.execCommand('copy');
-                showModal('コピー完了', '接続情報がクリップボードにコピーされました。');
+            // ホスト側のQRコードスキャン
+            scanButtonHost.addEventListener('click', async () => {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    scannerHost.srcObject = stream;
+                    scannerHost.play();
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+
+                    async function tick() {
+                        if (scannerHost.readyState === scannerHost.HAVE_ENOUGH_DATA) {
+                            canvas.height = scannerHost.videoHeight;
+                            canvas.width = scannerHost.videoWidth;
+                            context.drawImage(scannerHost, 0, 0, canvas.width, canvas.height);
+                            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                            if (code && code.data && code.data.trim() !== '') {
+                                try {
+                                    const remoteAnswer = JSON.parse(code.data);
+                                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+                                    showModal('接続完了', '参加者との接続が確立されました！');
+                                    hostSection.classList.add('hidden');
+                                    stream.getTracks().forEach(track => track.stop());
+                                    return;
+                                } catch (e) {
+                                    showModal('エラー', '無効なQRコードです。');
+                                    console.error('Failed to set remote answer:', e);
+                                }
+                            }
+                        }
+                        requestAnimationFrame(tick);
+                    }
+                    requestAnimationFrame(tick);
+                } catch (e) {
+                    showModal('エラー', 'カメラへのアクセスが拒否されました。');
+                    console.error('Camera access denied:', e);
+                }
             });
-            clientCopyButton.addEventListener('click', () => {
-                clientAnswerTextarea.select();
-                document.execCommand('copy');
-                showModal('コピー完了', '接続情報がクリップボードにコピーされました。');
+
+            // 参加者側のQRコードスキャン
+            scanButtonClient.addEventListener('click', async () => {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    scannerClient.srcObject = stream;
+                    scannerClient.play();
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+
+                    async function tick() {
+                        if (scannerClient.readyState === scannerClient.HAVE_ENOUGH_DATA) {
+                            canvas.height = scannerClient.videoHeight;
+                            canvas.width = scannerClient.videoWidth;
+                            context.drawImage(scannerClient, 0, 0, canvas.width, canvas.height);
+                            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                            if (code && code.data && code.data.trim() !== '') {
+                                try {
+                                    const remoteOffer = JSON.parse(code.data);
+                                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
+                                    
+                                    const answer = await peerConnection.createAnswer();
+                                    await peerConnection.setLocalDescription(answer);
+                                    clientSection.classList.remove('hidden');
+                                    stream.getTracks().forEach(track => track.stop());
+                                    return;
+                                } catch (e) {
+                                    showModal('エラー', '無効なQRコードです。');
+                                    console.error('Failed to set remote offer:', e);
+                                }
+                            }
+                        }
+                        requestAnimationFrame(tick);
+                    }
+                    requestAnimationFrame(tick);
+                } catch (e) {
+                    showModal('エラー', 'カメラへのアクセスが拒否されました。');
+                    console.error('Camera access denied:', e);
+                }
             });
         });
     </script>
