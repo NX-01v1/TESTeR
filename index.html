@@ -88,6 +88,16 @@
             <div id="clientPlaybackStatus" class="hidden text-center text-gray-600 font-medium">
                 ホストが再生を開始するのを待っています...
             </div>
+            
+            <!-- Host Playback Controls -->
+            <div id="hostPlaybackControls" class="hidden flex justify-center space-x-4">
+                <button id="playButton" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button id="pauseButton" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+            </div>
 
             <!-- Control Buttons -->
             <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
@@ -184,6 +194,9 @@
             const hostCopyButton = document.getElementById('hostCopyButton');
             const answerTextarea = document.getElementById('answerTextarea');
             const connectButton = document.getElementById('connectButton');
+            const hostPlaybackControls = document.getElementById('hostPlaybackControls');
+            const playButton = document.getElementById('playButton');
+            const pauseButton = document.getElementById('pauseButton');
             
             const clientSection = document.getElementById('clientSection');
             const offerTextarea = document.getElementById('offerTextarea');
@@ -303,16 +316,18 @@
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
 
-                // ホストのオーディオプレイヤーのイベントリスナーを設定
-                audioPlayer.addEventListener('play', () => {
+                // ホストの再生・一時停止ボタンのイベントリスナーを設定
+                playButton.addEventListener('click', () => {
                     if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                        audioPlayer.play();
                         const time = audioPlayer.currentTime;
                         dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
                     }
                 });
 
-                audioPlayer.addEventListener('pause', () => {
+                pauseButton.addEventListener('click', () => {
                     if (isConnected && dataChannel && dataChannel.readyState === 'open') {
+                        audioPlayer.pause();
                         const time = audioPlayer.currentTime;
                         dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
                     }
@@ -419,7 +434,7 @@
                         fileNameSpan.textContent = file.name;
                         audioPlayer.src = URL.createObjectURL(file);
                         audioPlayer.classList.remove('hidden');
-                        audioPlayer.controls = true; // Host shows controls
+                        hostPlaybackControls.classList.remove('hidden'); // Host shows custom controls
                     };
                     reader.readAsDataURL(file);
                 }
