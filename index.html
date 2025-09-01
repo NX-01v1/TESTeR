@@ -191,16 +191,21 @@
                 }
             }
         };
+        
+        // 接続状態が変更されたときにUIを更新する
+        peerConnection.onconnectionstatechange = (event) => {
+            console.log("Connection state changed: ", peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected' && !isHost) {
+                setupSection.classList.add('hidden');
+                musicSection.classList.remove('hidden');
+                guestStatus.classList.remove('hidden');
+                showMessage("接続が確立しました！ホストが音楽を再生するのを待っています...", 'success');
+            }
+        };
 
         // リモートトラックを受信
         peerConnection.ontrack = (event) => {
             player.srcObject = event.streams[0];
-            
-            // ゲスト側でUIを切り替える
-            setupSection.classList.add('hidden');
-            musicSection.classList.remove('hidden');
-            guestStatus.classList.remove('hidden');
-
             player.play();
         };
 
