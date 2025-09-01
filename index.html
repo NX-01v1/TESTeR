@@ -134,6 +134,8 @@
             <button id="listener-play-btn" class="mt-4 px-6 py-3 rounded-lg font-bold text-lg bg-green-600 hover:bg-green-700 transition duration-300 ease-in-out shadow-lg hidden">
                 再生
             </button>
+            <!-- Mute button for listener -->
+            <button id="listener-mute-btn" class="mt-2 py-2 px-4 rounded-lg bg-gray-600 hover:bg-gray-500 transition duration-300 hidden">ミュート</button>
         </div>
     </div>
 </div>
@@ -175,10 +177,12 @@
     const listenerPlayBtn = document.getElementById('listener-play-btn');
     const listenerStatusEl = document.getElementById('listener-status');
     const muteBtn = document.getElementById('mute-btn');
+    const listenerMuteBtn = document.getElementById('listener-mute-btn');
 
     // State Variables
     let isHost = false;
     let isMuted = false;
+    let isListenerMuted = false;
     const syncThreshold = 0.5; // Sync if difference is more than 0.5 seconds
     const localStorageKey = 'music-sync-state';
 
@@ -238,6 +242,7 @@
             listenerPlayer.pause();
             listenerAudioInfo.classList.add('hidden');
             listenerPlayBtn.classList.add('hidden');
+            listenerMuteBtn.classList.add('hidden');
             listenerStatusEl.textContent = "ホストが再生を停止しました。";
             log("ホストが再生を停止しました。");
             return;
@@ -271,10 +276,12 @@
         
         if (state.isPlaying) {
             listenerPlayBtn.classList.remove('hidden');
+            listenerMuteBtn.classList.remove('hidden');
             listenerStatusEl.textContent = "ホストが再生を開始しました。再生ボタンを押してください。";
         } else {
             listenerPlayer.pause();
             listenerPlayBtn.classList.add('hidden');
+            listenerMuteBtn.classList.add('hidden');
             listenerStatusEl.textContent = "ホストが一時停止しました。";
         }
     }
@@ -315,6 +322,14 @@
             log("再生に失敗しました: " + e.message);
             showDialog("再生に失敗しました。ユーザーの操作が必要です。", "⚠️");
         });
+    });
+
+    // Listener Mute Button
+    listenerMuteBtn.addEventListener('click', () => {
+        isListenerMuted = !isListenerMuted;
+        listenerPlayer.volume = isListenerMuted ? 0 : 1;
+        listenerMuteBtn.textContent = isListenerMuted ? 'ミュート解除' : 'ミュート';
+        log(`リスナーが音楽を${isListenerMuted ? 'ミュート' : 'ミュート解除'}しました。`);
     });
 
     musicButtons.forEach(button => {
