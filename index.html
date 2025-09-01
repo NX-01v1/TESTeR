@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>画面ミラーリングアプリ</title>
+    <title>サーバーレス画面ミラーリング</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body {
@@ -17,184 +16,192 @@
             min-height: 100vh;
             color: #1f2937;
         }
+        .message-box {
+            display: block;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-4">
 
     <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl text-center">
         <!-- アプリケーションのタイトル -->
-        <h1 class="text-3xl font-bold mb-6">画面ミラーリング</h1>
+        <h1 class="text-3xl font-bold mb-6">サーバーレス画面ミラーリング</h1>
 
-        <!-- ローカルビデオ要素 (非表示) -->
-        <video id="localVideo" class="hidden"></video>
-        <!-- リモートビデオ要素 (リモート画面を表示) -->
+        <!-- メッセージエリア -->
+        <div id="message" class="message-box bg-yellow-100 text-yellow-800 hidden"></div>
+
+        <!-- ビデオ要素 -->
         <video id="remoteVideo" class="w-full rounded-lg mb-6 shadow-md" autoplay playsinline></video>
 
-        <!-- PeerID表示セクション -->
+        <!-- 画面共有セクション -->
         <div class="mb-6">
-            <h2 class="text-xl font-semibold mb-2">あなたのID</h2>
-            <div class="flex items-center justify-center space-x-2">
-                <p id="myPeerId" class="text-2xl font-mono p-4 bg-gray-200 rounded-lg break-all flex-grow"></p>
-                <button id="copyBtn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-300">コピー</button>
-            </div>
+            <h2 class="text-xl font-semibold mb-2">画面共有を開始する</h2>
+            <button id="createOfferBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 transform hover:scale-105 mb-4 w-full">
+                オファーを作成
+            </button>
+            <textarea id="offerText" class="w-full h-32 p-3 border border-gray-300 rounded-lg mb-4 resize-none" placeholder="オファーSDPがここに表示されます"></textarea>
+            <button id="copyOfferBtn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-300 w-full mb-4">オファーをコピー</button>
         </div>
-
-        <!-- 画面共有ボタン -->
-        <button id="startSharingBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 transform hover:scale-105 mb-4 w-full">
-            画面共有を開始
-        </button>
-
-        <!-- 共有停止ボタン -->
-        <button id="stopSharingBtn" class="bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 transform hover:scale-105 mb-6 w-full hidden">
-            共有を停止
-        </button>
 
         <hr class="border-gray-300 mb-6">
 
         <!-- 接続セクション -->
         <div>
-            <h2 class="text-xl font-semibold mb-2">相手に接続</h2>
-            <p class="text-gray-600 mb-4">接続したい相手のIDを入力してください</p>
-            <input id="peerIdInput" type="text" placeholder="相手のIDを入力" class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button id="connectBtn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300 transform hover:scale-105 w-full">
+            <h2 class="text-xl font-semibold mb-2">相手に接続する</h2>
+            <p class="text-gray-600 mb-4">相手のSDPを貼り付けてください</p>
+            <textarea id="remoteSdpText" class="w-full h-32 p-3 border border-gray-300 rounded-lg mb-4 resize-none" placeholder="相手のSDPをここに貼り付けます"></textarea>
+            <button id="connectBtn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300 transform hover:scale-105 mb-4 w-full">
                 接続
             </button>
+            <textarea id="answerText" class="w-full h-32 p-3 border border-gray-300 rounded-lg mb-4 resize-none hidden" placeholder="アンサーSDPがここに表示されます"></textarea>
+            <button id="copyAnswerBtn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-300 w-full hidden">アンサーをコピー</button>
         </div>
-
-        <!-- メッセージ表示エリア -->
-        <div id="message" class="mt-6 p-4 bg-yellow-100 text-yellow-800 rounded-lg hidden"></div>
 
     </div>
 
     <script type="module">
-        const myPeerIdElement = document.getElementById('myPeerId');
-        const startSharingBtn = document.getElementById('startSharingBtn');
-        const stopSharingBtn = document.getElementById('stopSharingBtn');
-        const peerIdInput = document.getElementById('peerIdInput');
+        const createOfferBtn = document.getElementById('createOfferBtn');
+        const offerText = document.getElementById('offerText');
+        const copyOfferBtn = document.getElementById('copyOfferBtn');
+        const remoteSdpText = document.getElementById('remoteSdpText');
         const connectBtn = document.getElementById('connectBtn');
+        const answerText = document.getElementById('answerText');
+        const copyAnswerBtn = document.getElementById('copyAnswerBtn');
         const remoteVideo = document.getElementById('remoteVideo');
-        const localVideo = document.getElementById('localVideo');
         const messageElement = document.getElementById('message');
-        const copyBtn = document.getElementById('copyBtn');
 
-        let localStream = null;
+        let pc; // RTCPeerConnectionのインスタンス
 
         // メッセージを表示する関数
         function showMessage(text, type = 'info') {
             messageElement.textContent = text;
-            messageElement.className = `mt-6 p-4 rounded-lg block`;
+            messageElement.classList.remove('hidden');
             if (type === 'error') {
                 messageElement.classList.add('bg-red-100', 'text-red-800');
+                messageElement.classList.remove('bg-yellow-100', 'text-yellow-800');
             } else {
                 messageElement.classList.add('bg-yellow-100', 'text-yellow-800');
+                messageElement.classList.remove('bg-red-100', 'text-red-800');
             }
         }
 
-        // PeerJS初期化
-        const peer = new Peer();
-
-        peer.on('open', (id) => {
-            myPeerIdElement.textContent = id;
-            showMessage('IDが生成されました。接続を待機中です。');
-        });
-
-        // 画面共有を開始する際にストリームを取得
-        startSharingBtn.addEventListener('click', async () => {
+        // SDPをコピーする関数
+        async function copyToClipboard(elementId) {
+            const textToCopy = document.getElementById(elementId).value;
+            if (!textToCopy) {
+                showMessage('コピーするSDPがありません。', 'error');
+                return;
+            }
             try {
-                // 画面共有のストリームを取得
-                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-                localVideo.srcObject = localStream;
-                
-                // UIの更新
-                startSharingBtn.classList.add('hidden');
-                stopSharingBtn.classList.remove('hidden');
-                showMessage('画面共有を開始しました。相手からの接続を待っています。');
+                await navigator.clipboard.writeText(textToCopy);
+                showMessage('SDPがコピーされました！');
+            } catch (err) {
+                const tempInput = document.createElement('textarea');
+                tempInput.value = textToCopy;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                try {
+                    document.execCommand('copy');
+                    showMessage('SDPがコピーされました！（フォールバック）');
+                } catch (execErr) {
+                    console.error('コピーに失敗しました:', execErr);
+                    showMessage('コピーに失敗しました。', 'error');
+                }
+                document.body.removeChild(tempInput);
+            }
+        }
+
+        // RTCPeerConnectionを初期化
+        function initPeerConnection() {
+            // ICEサーバーはP2P接続を補助するために使用される
+            const iceServers = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
+            pc = new RTCPeerConnection(iceServers);
+
+            // リモートストリームを受信したときの処理
+            pc.ontrack = (event) => {
+                remoteVideo.srcObject = event.streams[0];
+                remoteVideo.play().catch(e => console.error("Video play failed:", e));
+                showMessage('接続が確立されました！');
+            };
+
+            // ICE候補を生成したときの処理（サーバーレスでは不要だがログ確認用）
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('ICE候補を生成しました:', event.candidate);
+                }
+            };
+        }
+
+        // オファーを作成する
+        createOfferBtn.addEventListener('click', async () => {
+            initPeerConnection();
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                pc.onicecandidate = (event) => {
+                    if (event.candidate === null) {
+                        offerText.value = JSON.stringify(pc.localDescription);
+                        showMessage('オファーSDPを作成しました。相手にコピーして共有してください。');
+                    }
+                };
 
             } catch (err) {
-                console.error("画面共有の取得エラー:", err);
+                console.error("オファー作成エラー:", err);
                 showMessage('画面共有を開始できませんでした。ブラウザの権限を確認してください。', 'error');
             }
         });
 
-        // 共有停止ボタンのクリックイベント
-        stopSharingBtn.addEventListener('click', () => {
-            if (localStream) {
-                const tracks = localStream.getTracks();
-                tracks.forEach(track => track.stop());
-                localStream = null;
+        // オファーコピーボタンのイベントリスナー
+        copyOfferBtn.addEventListener('click', () => copyToClipboard('offerText'));
+
+        // 接続ボタン（アンサーの作成またはリモートオファーの設定）
+        connectBtn.addEventListener('click', async () => {
+            const remoteSdp = remoteSdpText.value;
+            if (!remoteSdp) {
+                showMessage('相手のSDPを貼り付けてください。', 'error');
+                return;
             }
-            localVideo.srcObject = null;
-            remoteVideo.srcObject = null;
-            
-            // UIの更新
-            startSharingBtn.classList.remove('hidden');
-            stopSharingBtn.classList.add('hidden');
-            messageElement.classList.add('hidden');
-        });
 
-        // IDコピーボタンのクリックイベント
-        copyBtn.addEventListener('click', () => {
-            const idToCopy = myPeerIdElement.textContent;
-            if (idToCopy) {
-                // Clipboard APIを使用してテキストをコピー
-                navigator.clipboard.writeText(idToCopy).then(() => {
-                    showMessage('IDがコピーされました！');
-                }).catch(err => {
-                    console.error('コピーに失敗しました:', err);
-                    showMessage('コピーに失敗しました。', 'error');
-                });
-            }
-        });
+            const sdpObject = JSON.parse(remoteSdp);
 
+            if (sdpObject.type === 'offer') {
+                // 相手がオファーを送信した場合（アンサーを作成する）
+                initPeerConnection();
+                await pc.setRemoteDescription(new RTCSessionDescription(sdpObject));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
 
-        // 他のユーザーからの呼び出しを常に待機する
-        peer.on('call', (call) => {
-            showMessage('着信がありました。');
-            
-            // 画面共有が開始されている場合のみ、ストリームで応答
-            if (localStream) {
-                call.answer(localStream);
+                pc.onicecandidate = (event) => {
+                    if (event.candidate === null) {
+                        answerText.value = JSON.stringify(pc.localDescription);
+                        answerText.classList.remove('hidden');
+                        copyAnswerBtn.classList.remove('hidden');
+                        showMessage('アンサーSDPを作成しました。相手にコピーして貼り付けてください。');
+                    }
+                };
+
+            } else if (sdpObject.type === 'answer') {
+                // 相手がアンサーを送信した場合（接続を完了する）
+                if (!pc) {
+                    showMessage('まずオファーを作成してください。', 'error');
+                    return;
+                }
+                await pc.setRemoteDescription(new RTCSessionDescription(sdpObject));
+                showMessage('接続を完了しました。ストリームの開始を待っています。');
             } else {
-                // ストリームがない場合でも応答（ストリームは後で追加）
-                call.answer();
-            }
-
-            // リモートストリームを受信
-            call.on('stream', (remoteStream) => {
-                remoteVideo.srcObject = remoteStream;
-                showMessage('接続が確立されました。');
-            });
-
-            call.on('close', () => {
-                showMessage('接続が終了しました。');
-            });
-        });
-
-        // 接続ボタンのクリックイベント
-        connectBtn.addEventListener('click', () => {
-            const remotePeerId = peerIdInput.value;
-            if (remotePeerId) {
-                // 相手に接続要求を送信。この時点ではストリームは渡さない
-                const call = peer.call(remotePeerId, localStream);
-                showMessage('接続中です...');
-
-                call.on('stream', (remoteStream) => {
-                    remoteVideo.srcObject = remoteStream;
-                    showMessage('接続が確立されました。');
-                });
-                
-                call.on('close', () => {
-                    showMessage('接続が終了しました。');
-                });
-
-                call.on('error', (err) => {
-                    console.error("接続エラー:", err);
-                    showMessage('接続に失敗しました。IDを確認してください。', 'error');
-                });
-            } else {
-                showMessage('相手のIDを入力してください。', 'error');
+                showMessage('無効なSDP形式です。', 'error');
             }
         });
+
+        // アンサーコピーボタンのイベントリスナー
+        copyAnswerBtn.addEventListener('click', () => copyToClipboard('answerText'));
     </script>
 </body>
 </html>
