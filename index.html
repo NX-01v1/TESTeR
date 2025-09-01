@@ -526,11 +526,7 @@
                         }
                     } else if (message.type === 'clientReady') {
                         // 参加者からの再生開始通知を受信
-                        // 参加者側で play() を呼び出すよう指示
                         audioPlayer.play();
-                        const time = audioPlayer.currentTime;
-                        dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
-                        startPeriodicSync();
                     }
                 };
                 dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
@@ -636,14 +632,12 @@
                 }, 1000); // 1秒ごとに同期メッセージを送信
             }
 
-            // ホストの再生・一時停止ボタンのイベントリスナーを設定
+            // ホストの再生ボタンのイベントリスナー
             playButton.addEventListener('click', () => {
                 // ファイルが選択され、転送が完了していることを確認
                 if (isConnected && dataChannel && dataChannel.readyState === 'open' && !isTransferring && !audioPlayer.classList.contains('hidden')) {
-                    const time = audioPlayer.currentTime;
-                    // 参加者への再生指示を送信
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
-                    startPeriodicSync();
+                    // 単に再生を開始する
+                    audioPlayer.play();
                 } else if (isTransferring) {
                     showToast('ファイル転送中です。完了までお待ちください。');
                 } else if (audioPlayer.classList.contains('hidden')) {
@@ -651,6 +645,17 @@
                 }
             });
 
+            // ホスト側：オーディオが実際に再生を開始したときのイベントリスナー
+            audioPlayer.addEventListener('play', () => {
+                if (isHost && dataChannel && dataChannel.readyState === 'open') {
+                    const time = audioPlayer.currentTime;
+                    // 参加者への再生指示を送信
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
+                    startPeriodicSync();
+                }
+            });
+
+            // ホストの再生・一時停止ボタンのイベントリスナーを設定
             pauseButton.addEventListener('click', () => {
                 if (isConnected && dataChannel && dataChannel.readyState === 'open') {
                     audioPlayer.pause();
