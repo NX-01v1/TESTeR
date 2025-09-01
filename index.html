@@ -285,8 +285,8 @@
             const mainApp = document.getElementById('mainApp');
             const startHostButton = document.getElementById('startHostButton');
             const startClientButton = document.getElementById('startClientButton');
-            const debugHostButton = document.getElementById('debugHostButton'); // 追加
-            const debugClientButton = document.getElementById('debugClientButton'); // 追加
+            const debugHostButton = document.getElementById('debugHostButton');
+            const debugClientButton = document.getElementById('debugClientButton');
             
             const fileInput = document.getElementById('fileInput');
             const fileInputSection = document.getElementById('fileInputSection');
@@ -456,6 +456,7 @@
                 
                 // ICEギャザリングが完了したときのイベント
                 peerConnection.onicegatheringstatechange = () => {
+                    console.log(`ICE gathering state: ${peerConnection.iceGatheringState}`);
                     if (peerConnection.iceGatheringState === 'complete') {
                         console.log('ICE gathering complete');
                         if (isHost) {
@@ -485,6 +486,7 @@
 
                 // 接続状態が変化したときのイベント
                 peerConnection.onconnectionstatechange = () => {
+                    console.log(`Connection state: ${peerConnection.connectionState}`);
                     if (peerConnection.connectionState === 'connected') {
                         isConnected = true;
                         connectionStatus.textContent = '接続済み';
@@ -507,6 +509,7 @@
                 
                 // ICE接続状態が変化したときのイベント
                 peerConnection.oniceconnectionstatechange = () => {
+                    console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
                     if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
                         connectionStatus.textContent = '接続が切断されました';
                         disconnectButton.disabled = true;
@@ -585,10 +588,17 @@
                     }
                 };
                 dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
-                
+                dataChannel.onerror = (error) => { console.error('Data Channel Error:', error); };
+
                 // オファーを作成してローカルディスクリプションに設定
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
+                try {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    showToast('オファーが生成されました。');
+                } catch (e) {
+                    console.error('Failed to create or set offer:', e);
+                    showToast('エラー: オファーの生成に失敗しました。');
+                }
             });
 
             // 参加者として参加ボタン
@@ -669,6 +679,7 @@
                         console.log('Data Channel is closed.');
                         showToast('ホストとの接続が切断されました。');
                     };
+                    dataChannel.onerror = (error) => { console.error('Data Channel Error:', error); };
                 };
             });
             
@@ -846,15 +857,15 @@
             });
 
             // 参加者側のコード貼り付けボタン
-            connectWithClientCodeButton.addEventListener('click', () => {
+            connectWithClientCodeButton.addEventListener('click', async () => {
                 const remoteAnswerCode = pasteClientCodeTextarea.value;
                 if (remoteAnswerCode) {
                     try {
                         const remoteAnswer = JSON.parse(remoteAnswerCode);
-                        peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
                         showToast('参加者と接続しました！');
                     } catch (e) {
-                                showToast('エラー: 無効な接続コードです。');
+                        showToast('エラー: 無効な接続コードです。');
                         console.error('Failed to set remote answer from code:', e);
                     }
                 } else {
