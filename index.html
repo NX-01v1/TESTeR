@@ -118,7 +118,7 @@
     <div id="listener-content" class="w-full flex flex-col items-center hidden">
         <p class="text-center text-gray-400 mb-4">ホストの再生状態に同期します。音楽を再生するにはホストが開始するまでお待ちください。</p>
         <div class="w-full mb-4 card p-6 flex flex-col items-center">
-            <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-center">ホストの音楽を再生中</h2>
+            <h2 id="listener-status" class="text-xl sm:text-2xl font-semibold mb-4 text-center">ホストからの接続を待っています...</h2>
             <!-- Progress bar and time display for listener -->
             <div id="listener-audio-info" class="w-full hidden">
                 <div class="text-sm text-gray-400 mb-2 text-center">
@@ -129,6 +129,9 @@
                 </div>
             </div>
             <audio id="listener-player" class="hidden"></audio>
+            <button id="listener-play-btn" class="mt-4 px-6 py-3 rounded-lg font-bold text-lg bg-green-600 hover:bg-green-700 transition duration-300 ease-in-out shadow-lg hidden">
+                再生
+            </button>
         </div>
     </div>
 </div>
@@ -167,6 +170,8 @@
     const listenerCurrentTimeEl = document.getElementById('listener-current-time');
     const listenerDurationEl = document.getElementById('listener-duration');
     const listenerAudioInfo = document.getElementById('listener-audio-info');
+    const listenerPlayBtn = document.getElementById('listener-play-btn');
+    const listenerStatusEl = document.getElementById('listener-status');
 
     // State Variables
     let isHost = false;
@@ -223,11 +228,13 @@
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
-    // Sync Logic
+    // Sync Logic for Listener
     function syncListener(state) {
         if (!state || !state.isPlaying) {
             listenerPlayer.pause();
             listenerAudioInfo.classList.add('hidden');
+            listenerPlayBtn.classList.add('hidden');
+            listenerStatusEl.textContent = "ホストが再生を停止しました。";
             log("ホストが再生を停止しました。");
             return;
         }
@@ -261,13 +268,13 @@
         }
 
         if (state.isPlaying) {
-            listenerPlayer.play().catch(e => {
-                console.error("Play failed:", e);
-                log("再生に失敗しました: " + e.message);
-            });
+            // ホストが再生中の場合、リスナーに再生を促すボタンを表示
+            listenerPlayBtn.classList.remove('hidden');
+            listenerStatusEl.textContent = "ホストが再生を開始しました。再生ボタンを押してください。";
         } else {
             listenerPlayer.pause();
-            log("ホストが一時停止しました。");
+            listenerPlayBtn.classList.add('hidden');
+            listenerStatusEl.textContent = "ホストが一時停止しました。";
         }
     }
 
@@ -294,6 +301,19 @@
         listenerContent.classList.remove('hidden');
         showDialog("あなたはリスナーとして参加しました。ホストの音楽を待ちます。", "🎧");
         log("リスナーモードを開始しました。");
+    });
+
+    // Listener Play Button
+    listenerPlayBtn.addEventListener('click', () => {
+        listenerPlayer.play().then(() => {
+            listenerStatusEl.textContent = "ホストの音楽を再生中";
+            listenerPlayBtn.classList.add('hidden');
+            log("リスナーが再生ボタンを押しました。");
+        }).catch(e => {
+            console.error("Play failed:", e);
+            log("再生に失敗しました: " + e.message);
+            showDialog("再生に失敗しました。ユーザーの操作が必要です。", "⚠️");
+        });
     });
 
     musicButtons.forEach(button => {
