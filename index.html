@@ -94,6 +94,9 @@
                 <textarea id="answer-textarea" readonly class="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"></textarea>
                 <button id="copy-answer-button" class="w-full bg-green-100 text-green-700 font-medium py-2 px-4 rounded-full hover:bg-green-200 transition-colors">テキストをコピー</button>
             </div>
+            <div class="space-y-4">
+                <button id="go-to-player-button" class="w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-indigo-600 transition-colors hidden">再生画面へ進む</button>
+            </div>
         </div>
     </div>
     
@@ -122,6 +125,7 @@
     const createOfferButton = document.getElementById('create-offer-button');
     const createAnswerButton = document.getElementById('create-answer-button');
     const connectHostButton = document.getElementById('connect-host-button');
+    const goToPlayerButton = document.getElementById('go-to-player-button');
     const offerTextarea = document.getElementById('offer-textarea');
     const answerInput = document.getElementById('answer-input');
     const offerInput = document.getElementById('offer-input');
@@ -188,6 +192,7 @@
                     const jsonStr = JSON.stringify(signalingData);
                     answerTextarea.value = jsonStr;
                     generateQRCode(answerQrcodeDiv, jsonStr);
+                    goToPlayerButton.classList.remove('hidden');
                 }
             }
         };
@@ -350,6 +355,13 @@
         musicSection.classList.remove('hidden');
         showMessage("接続が確立しました！", 'success');
     };
+    
+    // ゲストが再生画面に移動
+    goToPlayerButton.onclick = () => {
+        setupSection.classList.add('hidden');
+        musicSection.classList.remove('hidden');
+        guestStatus.classList.remove('hidden');
+    }
 
     // ホストが音楽ファイルを読み込む
     audioFileInput.onchange = (event) => {
