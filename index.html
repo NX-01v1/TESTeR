@@ -3,205 +3,469 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>サーバーレス画面ミラーリング</title>
+    <title>同期音楽プレイヤー</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            color: #1f2937;
         }
-        .message-box {
-            display: block;
-            margin-top: 1.5rem;
-            padding: 1rem;
-            border-radius: 0.5rem;
+        .music-player-shadow {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 6px 6px rgba(0, 0, 0, 0.2);
+        }
+        .seek-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4A90E2;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.4);
+        }
+        .seek-bar::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #4A90E2;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        #youtube-player {
+            width: 100%;
+            height: 280px;
+            border-radius: 1.5rem; /* rounded-3xl */
+            overflow: hidden;
         }
     </style>
 </head>
-<body class="bg-gray-100 p-4">
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
 
-    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl text-center">
-        <!-- アプリケーションのタイトル -->
-        <h1 class="text-3xl font-bold mb-6">サーバーレス画面ミラーリング</h1>
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+        <div class="mt-4 text-white text-lg font-semibold">初期化中...</div>
+    </div>
 
-        <!-- メッセージエリア -->
-        <div id="message" class="message-box bg-yellow-100 text-yellow-800 hidden"></div>
-
-        <!-- ビデオ要素 -->
-        <video id="remoteVideo" class="w-full rounded-lg mb-6 shadow-md" autoplay playsinline></video>
-
-        <!-- 画面共有セクション -->
-        <div class="mb-6">
-            <h2 class="text-xl font-semibold mb-2">画面共有を開始する</h2>
-            <button id="createOfferBtn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300 transform hover:scale-105 mb-4 w-full">
-                オファーを作成
-            </button>
-            <textarea id="offerText" class="w-full h-32 p-3 border border-gray-300 rounded-lg mb-4 resize-none" placeholder="オファーSDPがここに表示されます"></textarea>
-            <button id="copyOfferBtn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-300 w-full mb-4">オファーをコピー</button>
+    <div class="bg-gray-800 music-player-shadow rounded-3xl p-8 max-w-lg w-full">
+        <!-- ヘッダーとユーザー情報 -->
+        <div class="mb-8 text-center">
+            <h1 class="text-3xl font-bold mb-2 text-blue-400">同期音楽プレイヤー</h1>
+            <p class="text-sm text-gray-400">ホストが再生すると、他のデバイスでも同時に再生されます。</p>
+            <p id="userIdDisplay" class="mt-4 text-sm bg-gray-700 text-gray-300 p-2 rounded-lg break-all">
+                ユーザーID: <span id="userIdValue" class="font-mono text-white"></span>
+            </p>
         </div>
 
-        <hr class="border-gray-300 mb-6">
+        <!-- 音楽プレイヤーとコントロール -->
+        <div class="flex flex-col items-center">
+            <!-- YouTube Player Container -->
+            <div id="youtube-player" class="mb-4 bg-gray-700 rounded-3xl"></div>
 
-        <!-- 接続セクション -->
-        <div>
-            <h2 class="text-xl font-semibold mb-2">相手に接続する</h2>
-            <p class="text-gray-600 mb-4">相手のSDPを貼り付けてください</p>
-            <textarea id="remoteSdpText" class="w-full h-32 p-3 border border-gray-300 rounded-lg mb-4 resize-none" placeholder="相手のSDPをここに貼り付けます"></textarea>
-            <button id="connectBtn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300 transform hover:scale-105 mb-4 w-full">
-                接続
-            </button>
-            <textarea id="answerText" class="w-full h-32 p-3 border border-gray-300 rounded-lg mb-4 resize-none hidden" placeholder="アンサーSDPがここに表示されます"></textarea>
-            <button id="copyAnswerBtn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-300 w-full hidden">アンサーをコピー</button>
+            <div class="w-full flex justify-between items-center mb-4">
+                <span id="currentTimeDisplay" class="text-sm text-gray-400">00:00</span>
+                <span id="durationDisplay" class="text-sm text-gray-400">00:00</span>
+            </div>
+            <input type="range" id="seek-bar" value="0" step="0.01" class="w-full h-2 rounded-lg bg-gray-700 appearance-none cursor-pointer mb-6 seek-bar">
+            
+            <div class="flex items-center justify-center space-x-6">
+                <button id="play-pause-btn" class="bg-blue-600 text-white rounded-full p-4 hover:bg-blue-500 transition-colors focus:outline-none focus:ring-4 focus:ring-blue-300">
+                    <svg id="play-icon" class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    <svg id="pause-icon" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 2a1 1 0 100 2h2a1 1 0 100-2h-2zm1 4a1 1 0 11-2 0 1 1 0 012 0zm-1 2a1 1 0 100 2h2a1 1 0 100-2h-2z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
+        <!-- 接続と設定 -->
+        <div class="mt-8 pt-6 border-t border-gray-700">
+            <h2 class="text-xl font-bold mb-4 text-center">セッション設定</h2>
+            
+            <div class="mb-4">
+                <label for="audio-url-input" class="block text-sm font-medium text-gray-400 mb-1">YouTubeのURLまたは動画ID</label>
+                <input type="text" id="audio-url-input" class="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="例: https://music.youtube.com/watch?v=..." value="https://music.youtube.com/watch?v=Q-dO4jYwIzo">
+            </div>
+
+            <div class="mb-4">
+                <label for="session-id-input" class="block text-sm font-medium text-gray-400 mb-1">ホストのユーザーID (セッションID)</label>
+                <input type="text" id="session-id-input" class="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="ホストのIDを入力">
+            </div>
+
+            <div class="flex space-x-4">
+                <button id="start-host-btn" class="flex-1 bg-green-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-green-500 transition-colors">ホストとして開始</button>
+                <button id="join-client-btn" class="flex-1 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl hover:bg-indigo-500 transition-colors">クライアントとして参加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- モーダルウィンドウ（alertの代替）-->
+    <div id="modal-container" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-80 text-center">
+            <p id="modal-message" class="text-white mb-4"></p>
+            <button id="modal-close-btn" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-500">OK</button>
+        </div>
     </div>
 
     <script type="module">
-        const createOfferBtn = document.getElementById('createOfferBtn');
-        const offerText = document.getElementById('offerText');
-        const copyOfferBtn = document.getElementById('copyOfferBtn');
-        const remoteSdpText = document.getElementById('remoteSdpText');
-        const connectBtn = document.getElementById('connectBtn');
-        const answerText = document.getElementById('answerText');
-        const copyAnswerBtn = document.getElementById('copyAnswerBtn');
-        const remoteVideo = document.getElementById('remoteVideo');
-        const messageElement = document.getElementById('message');
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let pc; // RTCPeerConnectionのインスタンス
+        // Firestoreのログを有効にする
+        setLogLevel('Debug');
 
-        // メッセージを表示する関数
-        function showMessage(text, type = 'info') {
-            messageElement.textContent = text;
-            messageElement.classList.remove('hidden');
-            if (type === 'error') {
-                messageElement.classList.add('bg-red-100', 'text-red-800');
-                messageElement.classList.remove('bg-yellow-100', 'text-yellow-800');
-            } else {
-                messageElement.classList.add('bg-yellow-100', 'text-yellow-800');
-                messageElement.classList.remove('bg-red-100', 'text-red-800');
-            }
+        // グローバル変数
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Firebaseの初期化と認証
+        let app, auth, db;
+        let userId = null;
+        let isHost = false;
+        let isReady = false;
+
+        // YouTube Player variables
+        let player;
+        let ytApiReady = false;
+
+        // DOM要素の取得
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const seekBar = document.getElementById('seek-bar');
+        const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+        const durationDisplay = document.getElementById('durationDisplay');
+        const startHostBtn = document.getElementById('start-host-btn');
+        const joinClientBtn = document.getElementById('join-client-btn');
+        const sessionIdInput = document.getElementById('session-id-input');
+        const userIdValueDisplay = document.getElementById('userIdValue');
+        const audioUrlInput = document.getElementById('audio-url-input');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const modalContainer = document.getElementById('modal-container');
+        const modalMessage = document.getElementById('modal-message');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+
+        // YouTube IFrame Player APIをロード
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        // APIがロードされたときに呼び出される関数
+        window.onYouTubeIframeAPIReady = function() {
+            ytApiReady = true;
+            console.log("YouTube IFrame Player APIがロードされました。");
+        };
+
+        // モーダルを表示する関数
+        function showModal(message) {
+            modalMessage.textContent = message;
+            modalContainer.style.display = 'flex';
         }
 
-        // SDPをコピーする関数
-        async function copyToClipboard(elementId) {
-            const textToCopy = document.getElementById(elementId).value;
-            if (!textToCopy) {
-                showMessage('コピーするSDPがありません。', 'error');
+        // モーダルを閉じる
+        modalCloseBtn.addEventListener('click', () => {
+            modalContainer.style.display = 'none';
+        });
+        
+        // Firestoreドキュメントのパスを取得
+        function getSessionDocRef(sessionId) {
+            return doc(db, `artifacts/${appId}/public/data/music_sync/${sessionId}`);
+        }
+
+        // Firebaseの初期化
+        function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdValueDisplay.textContent = userId;
+                        sessionIdInput.value = userId; // ホスト用として初期値を設定
+                        isReady = true;
+                        loadingOverlay.style.display = 'none';
+                    } else {
+                        try {
+                             // トークンがあればカスタム認証、なければ匿名認証
+                             if (initialAuthToken) {
+                                 await signInWithCustomToken(auth, initialAuthToken);
+                             } else {
+                                 await signInAnonymously(auth);
+                             }
+                        } catch (error) {
+                             console.error("認証エラー:", error);
+                             showModal("認証に失敗しました。ページをリロードしてください。");
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Firebaseの初期化に失敗しました:", error);
+                showModal("アプリケーションの初期化に失敗しました。");
+            }
+        }
+        initializeFirebase();
+
+        // YouTubeのURLから動画IDを抽出
+        function getVideoId(url) {
+            const urlObj = new URL(url);
+            const params = new URLSearchParams(urlObj.search);
+            const videoId = params.get('v');
+            if (videoId) {
+                return videoId;
+            }
+            const path = urlObj.pathname.split('/');
+            if (path.length > 1 && path[1] === 'watch') {
+                 return path[path.indexOf('watch') + 1];
+            }
+            return null;
+        }
+
+        // ホストとして開始
+        startHostBtn.addEventListener('click', async () => {
+            if (!isReady) {
+                showModal("アプリケーションの準備ができていません。しばらくお待ちください。");
                 return;
             }
-            try {
-                await navigator.clipboard.writeText(textToCopy);
-                showMessage('SDPがコピーされました！');
-            } catch (err) {
-                const tempInput = document.createElement('textarea');
-                tempInput.value = textToCopy;
-                document.body.appendChild(tempInput);
-                tempInput.select();
-                try {
-                    document.execCommand('copy');
-                    showMessage('SDPがコピーされました！（フォールバック）');
-                } catch (execErr) {
-                    console.error('コピーに失敗しました:', execErr);
-                    showMessage('コピーに失敗しました。', 'error');
-                }
-                document.body.removeChild(tempInput);
+            if (!ytApiReady) {
+                showModal("YouTube Player APIの準備ができていません。しばらくお待ちください。");
+                return;
             }
-        }
 
-        // RTCPeerConnectionを初期化
-        function initPeerConnection() {
-            // ICEサーバーはP2P接続を補助するために使用される
-            const iceServers = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
-            pc = new RTCPeerConnection(iceServers);
+            isHost = true;
+            const sessionId = userId;
+            const videoId = getVideoId(audioUrlInput.value);
+            if (!videoId) {
+                showModal("無効なYouTube URLです。正しいURLを入力してください。");
+                return;
+            }
 
-            // リモートストリームを受信したときの処理
-            pc.ontrack = (event) => {
-                remoteVideo.srcObject = event.streams[0];
-                remoteVideo.play().catch(e => console.error("Video play failed:", e));
-                showMessage('接続が確立されました！');
-            };
-
-            // ICE候補を生成したときの処理（サーバーレスでは不要だがログ確認用）
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log('ICE候補を生成しました:', event.candidate);
-                }
-            };
-        }
-
-        // オファーを作成する
-        createOfferBtn.addEventListener('click', async () => {
-            initPeerConnection();
+            // Firestoreにセッションドキュメントを作成
+            const sessionDocRef = getSessionDocRef(sessionId);
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-                stream.getTracks().forEach(track => pc.addTrack(track, stream));
+                await setDoc(sessionDocRef, {
+                    isPlaying: false,
+                    currentTime: 0,
+                    videoId: videoId,
+                    lastUpdateTime: Date.now(),
+                });
+                
+                // YouTubeプレイヤーを初期化
+                if (!player) {
+                    player = new YT.Player('youtube-player', {
+                        videoId: videoId,
+                        playerVars: {
+                            'controls': 0, // YouTubeのデフォルトのコントロールを非表示
+                            'disablekb': 1,
+                            'fs': 0,
+                            'modestbranding': 1,
+                            'rel': 0,
+                            'showinfo': 0
+                        },
+                        events: {
+                            'onReady': onPlayerReady,
+                            'onStateChange': onPlayerStateChange
+                        }
+                    });
+                } else {
+                    player.loadVideoById(videoId);
+                }
+                
+                showModal("ホストとしてセッションを開始しました。このユーザーIDを他のデバイスに共有してください。");
+                console.log("ホストセッション開始:", sessionId);
 
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-
-                pc.onicecandidate = (event) => {
-                    if (event.candidate === null) {
-                        offerText.value = JSON.stringify(pc.localDescription);
-                        showMessage('オファーSDPを作成しました。相手にコピーして共有してください。');
-                    }
-                };
-
-            } catch (err) {
-                console.error("オファー作成エラー:", err);
-                showMessage('画面共有を開始できませんでした。ブラウザの権限を確認してください。', 'error');
+            } catch (error) {
+                console.error("ホストセッションの作成に失敗しました:", error);
+                showModal("セッションの作成に失敗しました。");
             }
         });
 
-        // オファーコピーボタンのイベントリスナー
-        copyOfferBtn.addEventListener('click', () => copyToClipboard('offerText'));
-
-        // 接続ボタン（アンサーの作成またはリモートオファーの設定）
-        connectBtn.addEventListener('click', async () => {
-            const remoteSdp = remoteSdpText.value;
-            if (!remoteSdp) {
-                showMessage('相手のSDPを貼り付けてください。', 'error');
+        // クライアントとして参加
+        joinClientBtn.addEventListener('click', () => {
+            if (!isReady) {
+                showModal("アプリケーションの準備ができていません。しばらくお待ちください。");
+                return;
+            }
+            if (!ytApiReady) {
+                showModal("YouTube Player APIの準備ができていません。しばらくお待ちください。");
                 return;
             }
 
-            const sdpObject = JSON.parse(remoteSdp);
+            isHost = false;
+            const sessionId = sessionIdInput.value.trim();
+            if (!sessionId) {
+                showModal("参加したいホストのユーザーIDを入力してください。");
+                return;
+            }
 
-            if (sdpObject.type === 'offer') {
-                // 相手がオファーを送信した場合（アンサーを作成する）
-                initPeerConnection();
-                await pc.setRemoteDescription(new RTCSessionDescription(sdpObject));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
+            const sessionDocRef = getSessionDocRef(sessionId);
+            
+            // Firestoreからセッション情報を購読
+            onSnapshot(sessionDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    console.log("Firestoreからデータを受信:", data);
 
-                pc.onicecandidate = (event) => {
-                    if (event.candidate === null) {
-                        answerText.value = JSON.stringify(pc.localDescription);
-                        answerText.classList.remove('hidden');
-                        copyAnswerBtn.classList.remove('hidden');
-                        showMessage('アンサーSDPを作成しました。相手にコピーして貼り付けてください。');
+                    // YouTubeプレイヤーを初期化または動画をロード
+                    if (!player || player.getVideoData().video_id !== data.videoId) {
+                        player = new YT.Player('youtube-player', {
+                             videoId: data.videoId,
+                             playerVars: {
+                                'controls': 0,
+                                'disablekb': 1,
+                                'fs': 0,
+                                'modestbranding': 1,
+                                'rel': 0,
+                                'showinfo': 0
+                            },
+                             events: {
+                                'onReady': onPlayerReady,
+                                'onStateChange': onPlayerStateChange
+                            }
+                        });
                     }
-                };
-
-            } else if (sdpObject.type === 'answer') {
-                // 相手がアンサーを送信した場合（接続を完了する）
-                if (!pc) {
-                    showMessage('まずオファーを作成してください。', 'error');
-                    return;
+                    
+                    if (player.getPlayerState() === YT.PlayerState.UNSTARTED) {
+                         // 初回ロード時はplay()を呼ぶために待ち
+                         const checkReadyInterval = setInterval(() => {
+                             if (player.getPlayerState() !== YT.PlayerState.UNSTARTED) {
+                                 clearInterval(checkReadyInterval);
+                                 syncPlayer(data);
+                             }
+                         }, 100);
+                    } else {
+                         syncPlayer(data);
+                    }
+                    
+                } else {
+                    showModal("指定されたセッションIDが見つかりません。");
                 }
-                await pc.setRemoteDescription(new RTCSessionDescription(sdpObject));
-                showMessage('接続を完了しました。ストリームの開始を待っています。');
+            }, (error) => {
+                console.error("Firestoreの購読エラー:", error);
+                showModal("セッションの読み込み中にエラーが発生しました。");
+            });
+        });
+
+        // プレイヤーの状態を同期する
+        function syncPlayer(data) {
+            // 再生状態を同期
+            if (data.isPlaying) {
+                // ホストの再生時間とローカルの再生時間の差を計算
+                const timeDifference = Math.abs(player.getCurrentTime() - data.currentTime);
+                if (timeDifference > 1) { // 1秒以上のズレがある場合のみシーク
+                    player.seekTo(data.currentTime, true);
+                    player.playVideo();
+                } else if (player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                    player.playVideo();
+                }
+                updatePlayPauseButton(true);
             } else {
-                showMessage('無効なSDP形式です。', 'error');
+                player.pauseVideo();
+                updatePlayPauseButton(false);
+            }
+            
+            // シークバーを同期
+            seekBar.value = data.currentTime;
+            updateTimeDisplay();
+        }
+
+        // YouTube Player Ready Event
+        function onPlayerReady(event) {
+            console.log("YouTube Player is ready.");
+            seekBar.max = player.getDuration();
+            durationDisplay.textContent = formatTime(player.getDuration());
+            
+            // シークバーの操作
+            seekBar.addEventListener('input', () => {
+                updateTimeDisplay();
+            });
+            seekBar.addEventListener('change', () => {
+                 if (isHost) {
+                     player.seekTo(seekBar.value, true);
+                     const sessionDocRef = getSessionDocRef(userId);
+                     setDoc(sessionDocRef, { currentTime: seekBar.value, lastUpdateTime: Date.now() }, { merge: true }).catch(console.error);
+                 }
+            });
+
+            // ホストの再生を監視し、Firestoreを更新
+            if (isHost) {
+                 setInterval(() => {
+                    const sessionDocRef = getSessionDocRef(userId);
+                    const currentTime = player.getCurrentTime();
+                    setDoc(sessionDocRef, { currentTime: currentTime, lastUpdateTime: Date.now() }, { merge: true }).catch(console.error);
+                    
+                    // シークバーを更新
+                    if (Math.abs(currentTime - parseFloat(seekBar.value)) > 0.5) {
+                        seekBar.value = currentTime;
+                    }
+                    updateTimeDisplay();
+
+                }, 500); // 0.5秒ごとに更新
+            }
+        }
+        
+        // YouTube Player State Change Event
+        function onPlayerStateChange(event) {
+            if (isHost) {
+                const sessionDocRef = getSessionDocRef(userId);
+                if (event.data === YT.PlayerState.PLAYING) {
+                    setDoc(sessionDocRef, { isPlaying: true, lastUpdateTime: Date.now() }, { merge: true }).catch(console.error);
+                    updatePlayPauseButton(true);
+                } else if (event.data === YT.PlayerState.PAUSED) {
+                    setDoc(sessionDocRef, { isPlaying: false, lastUpdateTime: Date.now() }, { merge: true }).catch(console.error);
+                    updatePlayPauseButton(false);
+                }
+            }
+        }
+
+        // 再生/一時停止ボタンの切り替え
+        function updatePlayPauseButton(isPlaying) {
+            if (isPlaying) {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            } else {
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        }
+
+        // 再生/一時停止ボタンのイベント
+        playPauseBtn.addEventListener('click', () => {
+            if (!isHost) {
+                showModal("ホストのみが再生を制御できます。");
+                return;
+            }
+            if (!player) {
+                showModal("まずホストとしてセッションを開始してください。");
+                return;
+            }
+            if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+                player.pauseVideo();
+            } else {
+                player.playVideo();
             }
         });
 
-        // アンサーコピーボタンのイベントリスナー
-        copyAnswerBtn.addEventListener('click', () => copyToClipboard('answerText'));
+        // 時間表示のフォーマット
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "00:00";
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+        }
+
+        // 時間表示を更新
+        function updateTimeDisplay() {
+            currentTimeDisplay.textContent = formatTime(seekBar.value);
+        }
+        
     </script>
 </body>
 </html>
