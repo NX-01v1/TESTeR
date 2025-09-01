@@ -49,88 +49,103 @@
     <div class="container space-y-6">
         <h1 class="text-3xl font-bold text-center text-indigo-700">WebRTC Music Sync</h1>
         <p class="text-center text-gray-600">
-            みんなで音楽を同期して聴こう！ファイルを選択し、接続リンクを共有してください。
+            みんなで音楽を同期して聴こう！
         </p>
 
-        <!-- Connection Status -->
-        <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-            <p id="connectionStatus" class="text-center font-medium">
-                接続していません
-            </p>
+        <!-- Role Selection -->
+        <div id="roleSelection" class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+            <button id="startHostButton" class="flex-1 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">ホストとして始める</button>
+            <button id="startClientButton" class="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">参加者として参加</button>
         </div>
 
-        <!-- File Input Section -->
-        <div>
-            <label for="fileInput" class="file-input-label">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                <span>音楽ファイルをドラッグ＆ドロップまたはクリックで選択</span>
-            </label>
-            <input type="file" id="fileInput" accept="audio/*" class="hidden">
-        </div>
+        <!-- Main App Section (Initially Hidden) -->
+        <div id="mainApp" class="hidden space-y-6">
+            <!-- Connection Status -->
+            <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                <p id="connectionStatus" class="text-center font-medium">
+                    接続していません
+                </p>
+            </div>
 
-        <!-- File Info & Playback -->
-        <div id="fileInfo" class="hidden p-4 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
-            <p class="font-semibold text-indigo-700">選択したファイル:</p>
-            <p id="fileName" class="text-gray-800 break-words"></p>
-        </div>
-        
-        <audio id="audioPlayer" controls class="w-full hidden rounded-lg"></audio>
+            <!-- File Input Section (Host Only) -->
+            <div id="fileInputSection" class="hidden">
+                <label for="fileInput" class="file-input-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span>音楽ファイルをドラッグ＆ドロップまたはクリックで選択</span>
+                </label>
+                <input type="file" id="fileInput" accept="audio/*" class="hidden">
+            </div>
 
-        <!-- Control Buttons -->
-        <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-            <button id="sendDataButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
-                参加者に同期
-            </button>
-            <button id="disconnectButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
-                接続を切断
-            </button>
-        </div>
+            <!-- File Info & Playback -->
+            <div id="fileInfo" class="hidden p-4 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+                <p class="font-semibold text-indigo-700">選択したファイル:</p>
+                <p id="fileName" class="text-gray-800 break-words"></p>
+            </div>
+            
+            <audio id="audioPlayer" controls class="w-full hidden rounded-lg"></audio>
 
-        <!-- Connection URL for Host -->
-        <div id="hostConnectionSection" class="hidden space-y-4">
-            <div>
+            <!-- Control Buttons -->
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <button id="sendDataButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    参加者に同期
+                </button>
+                <button id="disconnectButton" disabled class="flex-1 w-full sm:w-auto px-6 py-3 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    接続を切断
+                </button>
+            </div>
+
+            <!-- Host Section -->
+            <div id="hostSection" class="hidden">
                 <p class="text-sm font-medium text-center text-gray-500">
-                    このURLを共有して他の人を招待:
+                    以下の情報をコピーして参加者に送ってください:
                 </p>
                 <div class="relative mt-2">
-                    <input type="text" id="hostConnectionUrl" class="w-full p-3 border border-gray-300 rounded-lg pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly>
-                    <button id="hostCopyButton" class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 hover:text-indigo-500 transition duration-200 ease-in-out">
+                    <textarea id="hostOfferTextarea" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly></textarea>
+                    <button id="hostCopyButton" class="absolute top-2 right-2 p-2 text-gray-500 hover:text-indigo-500 transition duration-200 ease-in-out">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
                             <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
                         </svg>
                     </button>
                 </div>
-            </div>
-            
-            <div>
-                <p class="text-sm font-medium text-center text-gray-500">
-                    参加者から受け取ったURLをここに貼り付けて接続:
+
+                <p class="text-sm font-medium text-center text-gray-500 mt-4">
+                    参加者から受け取った情報をここに貼り付けて接続:
                 </p>
-                <div class="relative mt-2 flex space-x-2">
-                    <input type="text" id="answerUrlInput" placeholder="参加者のURLをここに貼り付けてください" class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <button id="connectToClientButton" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-200 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                <div class="relative mt-2">
+                    <textarea id="answerTextarea" placeholder="参加者の接続情報をここに貼り付けてください" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-green-500"></textarea>
+                    <button id="connectButton" class="w-full px-6 py-3 mt-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition">
                         接続
                     </button>
                 </div>
             </div>
-        </div>
 
-        <!-- Connection URL for Client -->
-        <div id="clientConnectionSection" class="hidden">
-            <p class="text-sm font-medium text-center text-gray-500">
-                このURLをホストに送ってください:
-            </p>
-            <div class="relative mt-2">
-                <input type="text" id="clientConnectionUrl" class="w-full p-3 border border-gray-300 rounded-lg pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly>
-                <button id="clientCopyButton" class="absolute inset-y-0 right-0 flex items-center px-4 text-gray-500 hover:text-indigo-500 transition duration-200 ease-in-out">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                    </svg>
-                </button>
+            <!-- Client Section -->
+            <div id="clientSection" class="hidden">
+                <p class="text-sm font-medium text-center text-gray-500">
+                    ホストから受け取った情報をここに貼り付けてください:
+                </p>
+                <div class="relative mt-2">
+                    <textarea id="offerTextarea" placeholder="ホストの接続情報をここに貼り付けてください" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    <button id="generateAnswerButton" class="w-full px-6 py-3 mt-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">
+                        回答を生成
+                    </button>
+                </div>
+                
+                <p class="text-sm font-medium text-center text-gray-500 mt-4">
+                    以下の情報をコピーしてホストに送ってください:
+                </p>
+                <div class="relative mt-2">
+                    <textarea id="clientAnswerTextarea" class="w-full p-3 border border-gray-300 rounded-lg pr-12 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-green-500" readonly></textarea>
+                    <button id="clientCopyButton" class="absolute top-2 right-2 p-2 text-gray-500 hover:text-green-500 transition duration-200 ease-in-out">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -146,21 +161,32 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const roleSelection = document.getElementById('roleSelection');
+            const mainApp = document.getElementById('mainApp');
+            const startHostButton = document.getElementById('startHostButton');
+            const startClientButton = document.getElementById('startClientButton');
+            
             const fileInput = document.getElementById('fileInput');
+            const fileInputSection = document.getElementById('fileInputSection');
             const fileInfoDiv = document.getElementById('fileInfo');
             const fileNameSpan = document.getElementById('fileName');
             const audioPlayer = document.getElementById('audioPlayer');
             const connectionStatus = document.getElementById('connectionStatus');
-            const hostConnectionSection = document.getElementById('hostConnectionSection');
-            const hostConnectionUrlInput = document.getElementById('hostConnectionUrl');
-            const hostCopyButton = document.getElementById('hostCopyButton');
-            const clientConnectionSection = document.getElementById('clientConnectionSection');
-            const clientConnectionUrlInput = document.getElementById('clientConnectionUrl');
-            const clientCopyButton = document.getElementById('clientCopyButton');
-            const answerUrlInput = document.getElementById('answerUrlInput');
-            const connectToClientButton = document.getElementById('connectToClientButton');
             const sendDataButton = document.getElementById('sendDataButton');
             const disconnectButton = document.getElementById('disconnectButton');
+            
+            const hostSection = document.getElementById('hostSection');
+            const hostOfferTextarea = document.getElementById('hostOfferTextarea');
+            const hostCopyButton = document.getElementById('hostCopyButton');
+            const answerTextarea = document.getElementById('answerTextarea');
+            const connectButton = document.getElementById('connectButton');
+            
+            const clientSection = document.getElementById('clientSection');
+            const offerTextarea = document.getElementById('offerTextarea');
+            const generateAnswerButton = document.getElementById('generateAnswerButton');
+            const clientAnswerTextarea = document.getElementById('clientAnswerTextarea');
+            const clientCopyButton = document.getElementById('clientCopyButton');
+
             const messageModal = document.getElementById('messageModal');
             const modalTitle = document.getElementById('modalTitle');
             const modalMessage = document.getElementById('modalMessage');
@@ -178,8 +204,6 @@
             let fileData = null;
             let isHost = false;
             let isConnected = false;
-            const urlParams = new URLSearchParams(window.location.search);
-            const offer = urlParams.get('offer');
 
             function showModal(title, message) {
                 modalTitle.textContent = title;
@@ -191,59 +215,36 @@
                 messageModal.classList.add('hidden');
             };
 
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        fileData = event.target.result;
-                        fileInfoDiv.classList.remove('hidden');
-                        fileNameSpan.textContent = file.name;
-                        audioPlayer.src = URL.createObjectURL(file);
-                        audioPlayer.classList.remove('hidden');
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-
-            sendDataButton.addEventListener('click', () => {
-                if (!fileData) {
-                    showModal('エラー', '音楽ファイルが選択されていません。');
-                    return;
-                }
-                if (dataChannel && dataChannel.readyState === 'open') {
-                    dataChannel.send(JSON.stringify({ type: 'audio', data: fileData }));
-                    showModal('送信完了', '音楽ファイルを参加者に送信しました。');
-                } else {
-                    showModal('エラー', 'データチャネルが開いていません。接続を確認してください。');
-                }
-            });
-
-            audioPlayer.addEventListener('play', () => {
-                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
-                    const time = audioPlayer.currentTime;
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
-                }
-            });
-
-            audioPlayer.addEventListener('pause', () => {
-                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
-                    const time = audioPlayer.currentTime;
-                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
-                }
-            });
-
             function createPeerConnection() {
                 peerConnection = new RTCPeerConnection(iceServers);
+                
                 peerConnection.onicecandidate = (event) => {
-                    // For simplicity, we'll log the candidate. In a real app, you would send this to the other peer.
+                    if (event.candidate) {
+                        // This event fires multiple times.
+                        // We will handle the full SDP and candidate exchange in a single step after ICE gathering completes.
+                    }
                 };
+                
+                peerConnection.onicegatheringstatechange = () => {
+                    if (peerConnection.iceGatheringState === 'complete') {
+                        console.log('ICE gathering complete');
+                        if (isHost) {
+                            hostOfferTextarea.value = JSON.stringify(peerConnection.localDescription);
+                            showModal('接続情報生成完了', 'ホストの接続情報が生成されました。コピーして参加者に送ってください。');
+                        } else {
+                            clientAnswerTextarea.value = JSON.stringify(peerConnection.localDescription);
+                            showModal('回答情報生成完了', '回答情報が生成されました。コピーしてホストに送ってください。');
+                        }
+                    }
+                };
+
                 peerConnection.onconnectionstatechange = () => {
                     if (peerConnection.connectionState === 'connected') {
                         isConnected = true;
                         connectionStatus.textContent = '接続済み';
                         sendDataButton.disabled = false;
                         disconnectButton.disabled = false;
+                        showModal('接続成功', '参加者と接続しました。音楽を再生してください。');
                     } else {
                         isConnected = false;
                         connectionStatus.textContent = '切断済み';
@@ -251,6 +252,7 @@
                         disconnectButton.disabled = true;
                     }
                 };
+                
                 peerConnection.oniceconnectionstatechange = () => {
                     if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
                         connectionStatus.textContent = '接続が切断されました';
@@ -260,73 +262,74 @@
                 };
             }
 
-            async function handleHost() {
+            // ホストとして始める
+            startHostButton.addEventListener('click', async () => {
                 isHost = true;
+                roleSelection.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                fileInputSection.classList.remove('hidden');
+                hostSection.classList.remove('hidden');
+                connectionStatus.textContent = '待機中...';
+                
                 createPeerConnection();
 
                 dataChannel = peerConnection.createDataChannel('audio-sync');
-                dataChannel.onopen = () => {
-                    console.log('Data Channel is open!');
-                };
-                dataChannel.onmessage = (event) => {
+                dataChannel.onopen = () => { console.log('Data Channel is open!'); };
+                dataChannel.onmessage = async (event) => {
                     const message = JSON.parse(event.data);
                     if (message.type === 'requestAudio') {
                         if (fileData) {
-                            dataChannel.send(JSON.stringify({ type: 'audio', data: fileData }));
+                            // Split data into chunks to avoid large message size limits
+                            const chunkSize = 16 * 1024; // 16KB
+                            for (let i = 0; i < fileData.length; i += chunkSize) {
+                                dataChannel.send(JSON.stringify({
+                                    type: 'audio_chunk',
+                                    chunk: fileData.slice(i, i + chunkSize),
+                                    isLast: (i + chunkSize) >= fileData.length
+                                }));
+                            }
                             showModal('ファイル送信中', '参加者に音楽ファイルを送信しています。');
                         } else {
                             showModal('エラー', 'ホストはまだ音楽ファイルを選択していません。');
                         }
                     }
                 };
-                dataChannel.onclose = () => {
-                    console.log('Data Channel is closed.');
-                };
-
+                dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
+                
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
-
-                const offerUrl = `${window.location.origin}${window.location.pathname}?offer=${btoa(JSON.stringify(peerConnection.localDescription))}`;
-                hostConnectionUrlInput.value = offerUrl;
-                hostConnectionSection.classList.remove('hidden');
-                connectionStatus.textContent = '待機中... 接続リンクを共有してください。';
-            }
-
-            connectToClientButton.addEventListener('click', async () => {
-                const answerUrl = answerUrlInput.value;
-                if (!answerUrl) {
-                    showModal('エラー', 'URLが入力されていません。');
-                    return;
-                }
-                const urlParams = new URLSearchParams(new URL(answerUrl).search);
-                const answer = urlParams.get('answer');
-
-                if (answer) {
-                    await handleAnswer(answer);
-                } else {
-                    showModal('エラー', '無効なURLです。アンサーURLを貼り付けてください。');
-                }
             });
 
-            async function handleClient(offer) {
+            // 参加者として参加
+            startClientButton.addEventListener('click', () => {
                 isHost = false;
+                roleSelection.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+                clientSection.classList.remove('hidden');
+                connectionStatus.textContent = '待機中...';
+                
                 createPeerConnection();
 
                 peerConnection.ondatachannel = (event) => {
                     dataChannel = event.channel;
+                    let receivedChunks = [];
                     dataChannel.onopen = () => {
                         console.log('Data Channel is open!');
                         dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
                     };
-                    dataChannel.onmessage = (event) => {
+                    dataChannel.onmessage = async (event) => {
                         const message = JSON.parse(event.data);
-                        if (message.type === 'audio') {
-                            fileData = message.data;
-                            audioPlayer.src = fileData;
-                            audioPlayer.classList.remove('hidden');
-                            fileInfoDiv.classList.remove('hidden');
-                            fileNameSpan.textContent = '受信したファイル';
-                            showModal('ファイル受信', 'ホストから音楽ファイルを受信しました。');
+                        if (message.type === 'audio_chunk') {
+                            receivedChunks.push(message.chunk);
+                            if (message.isLast) {
+                                fileData = receivedChunks.join('');
+                                audioPlayer.src = fileData;
+                                audioPlayer.classList.remove('hidden');
+                                fileInfoDiv.classList.remove('hidden');
+                                fileNameSpan.textContent = '受信したファイル';
+                                showModal('ファイル受信', 'ホストから音楽ファイルを受信しました。');
+                                receivedChunks = [];
+                            }
                         } else if (message.type === 'sync') {
                             if (message.action === 'play') {
                                 audioPlayer.currentTime = message.time;
@@ -342,53 +345,108 @@
                         showModal('接続切断', 'ホストとの接続が切断されました。');
                     };
                 };
-
-                const remoteOffer = JSON.parse(atob(offer));
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
-
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-
-                const answerUrl = `${window.location.origin}${window.location.pathname}?answer=${btoa(JSON.stringify(peerConnection.localDescription))}`;
-                clientConnectionUrlInput.value = answerUrl;
-                clientConnectionSection.classList.remove('hidden');
-                connectionStatus.textContent = '接続中...';
-                showModal('接続準備完了', 'このURLをホストに伝えてください。');
-            }
-
-            async function handleAnswer(answer) {
-                const remoteAnswer = JSON.parse(atob(answer));
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
-                showModal('接続成功', '参加者と接続しました。音楽を再生してください。');
-                hostConnectionSection.classList.add('hidden'); // Hide host connection section after success
-            }
+            });
             
+            // ホストがアンサーを受け取る
+            connectButton.addEventListener('click', async () => {
+                const answerSDP = answerTextarea.value;
+                if (!answerSDP) {
+                    showModal('エラー', '回答情報が入力されていません。');
+                    return;
+                }
+                try {
+                    const remoteAnswer = JSON.parse(answerSDP);
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteAnswer));
+                    showModal('接続完了', '参加者との接続が確立されました！');
+                    hostSection.classList.add('hidden');
+                } catch (e) {
+                    showModal('エラー', '無効な回答情報です。正しくコピー＆ペーストされているか確認してください。');
+                    console.error('Failed to set remote answer:', e);
+                }
+            });
+
+            // 参加者がオファーを受け取り、アンサーを生成
+            generateAnswerButton.addEventListener('click', async () => {
+                const offerSDP = offerTextarea.value;
+                if (!offerSDP) {
+                    showModal('エラー', '接続情報が入力されていません。');
+                    return;
+                }
+                try {
+                    const remoteOffer = JSON.parse(offerSDP);
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(remoteOffer));
+                    
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                } catch (e) {
+                    showModal('エラー', '無効な接続情報です。正しくコピー＆ペーストされているか確認してください。');
+                    console.error('Failed to set remote offer:', e);
+                }
+            });
+            
+            // ファイル選択
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        fileData = event.target.result;
+                        fileInfoDiv.classList.remove('hidden');
+                        fileNameSpan.textContent = file.name;
+                        audioPlayer.src = URL.createObjectURL(file);
+                        audioPlayer.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // ホストのデータ送信
+            sendDataButton.addEventListener('click', () => {
+                if (!fileData) {
+                    showModal('エラー', '音楽ファイルが選択されていません。');
+                    return;
+                }
+                if (dataChannel && dataChannel.readyState === 'open') {
+                    // Send request to client to begin transfer
+                    dataChannel.send(JSON.stringify({ type: 'requestAudio' }));
+                } else {
+                    showModal('エラー', 'データチャネルが開いていません。接続を確認してください。');
+                }
+            });
+
+            // 接続切断
             disconnectButton.addEventListener('click', () => {
                 if (peerConnection) {
                     peerConnection.close();
                 }
-                window.location.href = window.location.origin + window.location.pathname;
+                window.location.reload();
             });
 
+            // コピーボタン
             hostCopyButton.addEventListener('click', () => {
-                hostConnectionUrlInput.select();
+                hostOfferTextarea.select();
                 document.execCommand('copy');
-                showModal('コピー完了', 'URLがクリップボードにコピーされました。');
+                showModal('コピー完了', '接続情報がクリップボードにコピーされました。');
             });
-
             clientCopyButton.addEventListener('click', () => {
-                clientConnectionUrlInput.select();
+                clientAnswerTextarea.select();
                 document.execCommand('copy');
-                showModal('コピー完了', 'URLがクリップボードにコピーされました。');
+                showModal('コピー完了', '接続情報がクリップボードにコピーされました。');
+            });
+            
+            audioPlayer.addEventListener('play', () => {
+                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
+                    const time = audioPlayer.currentTime;
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time }));
+                }
             });
 
-            if (offer) {
-                // クライアントとして接続する場合
-                handleClient(offer);
-            } else {
-                // ホストとして接続を待つ場合
-                handleHost();
-            }
+            audioPlayer.addEventListener('pause', () => {
+                if (isHost && isConnected && dataChannel && dataChannel.readyState === 'open') {
+                    const time = audioPlayer.currentTime;
+                    dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
+                }
+            });
         });
     </script>
 </body>
