@@ -342,6 +342,7 @@
             let totalFileSize = 0;
             let receivedSize = 0;
             let isTransferring = false; // 転送中かどうかのフラグ
+            let syncInterval = null;
 
             /**
              * トースト通知を表示する関数
@@ -418,7 +419,8 @@
                             qr.make();
                             qrCodeHost.innerHTML = qr.createImgTag(5);
                             hostCodeInput.value = offerSdp;
-                            showToast('ホストの接続情報が生成されました。');
+                            showToast('ホストの接続情報が生成されました。自動的にコードがコピーされました。');
+                            navigator.clipboard.writeText(offerSdp);
                             stopScanner(hostScanner);
                         } else {
                             const answerSDP = JSON.stringify(peerConnection.localDescription);
@@ -428,7 +430,8 @@
                             qrCodeClient.innerHTML = qr.createImgTag(5);
                             clientCodeInput.value = answerSDP;
                             qrCodeClientSection.classList.remove('hidden');
-                            showToast('回答情報が生成されました。');
+                            showToast('回答情報が生成されました。自動的にコードがコピーされました。');
+                            navigator.clipboard.writeText(answerSDP);
                             stopScanner(clientScanner);
                         }
                     }
@@ -527,6 +530,7 @@
                         audioPlayer.play();
                         const time = audioPlayer.currentTime;
                         dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
+                        startPeriodicSync();
                     }
                 };
                 dataChannel.onclose = () => { console.log('Data Channel is closed.'); };
@@ -598,11 +602,13 @@
                                 // 遅延を考慮して再生時間を補正
                                 const delay = (Date.now() - message.timestamp) / 1000;
                                 const syncedTime = message.time + delay;
-                                audioPlayer.currentTime = syncedTime;
+                                const timeDifference = Math.abs(audioPlayer.currentTime - syncedTime);
+                                if (timeDifference > 0.05) { // 0.05秒以上のズレがあれば補正
+                                    audioPlayer.currentTime = syncedTime;
+                                }
                                 audioPlayer.play(); // ホストからの指示で再生開始
                                 clientPlaybackStatus.textContent = '再生中';
                             } else if (message.action === 'pause') {
-                                audioPlayer.currentTime = message.time;
                                 audioPlayer.pause();
                                 clientPlaybackStatus.textContent = '一時停止中';
                             }
@@ -615,6 +621,21 @@
                 };
             });
             
+            // 定期的な同期を送信する関数
+            function startPeriodicSync() {
+                if (syncInterval) clearInterval(syncInterval);
+                syncInterval = setInterval(() => {
+                    if (dataChannel && dataChannel.readyState === 'open' && !audioPlayer.paused) {
+                        dataChannel.send(JSON.stringify({
+                            type: 'sync',
+                            action: 'play',
+                            time: audioPlayer.currentTime,
+                            timestamp: Date.now()
+                        }));
+                    }
+                }, 1000); // 1秒ごとに同期メッセージを送信
+            }
+
             // ホストの再生・一時停止ボタンのイベントリスナーを設定
             playButton.addEventListener('click', () => {
                 // ファイルが選択され、転送が完了していることを確認
@@ -622,6 +643,7 @@
                     const time = audioPlayer.currentTime;
                     // 参加者への再生指示を送信
                     dataChannel.send(JSON.stringify({ type: 'sync', action: 'play', time: time, timestamp: Date.now() }));
+                    startPeriodicSync();
                 } else if (isTransferring) {
                     showToast('ファイル転送中です。完了までお待ちください。');
                 } else if (audioPlayer.classList.contains('hidden')) {
@@ -632,6 +654,7 @@
             pauseButton.addEventListener('click', () => {
                 if (isConnected && dataChannel && dataChannel.readyState === 'open') {
                     audioPlayer.pause();
+                    if (syncInterval) clearInterval(syncInterval);
                     const time = audioPlayer.currentTime;
                     dataChannel.send(JSON.stringify({ type: 'sync', action: 'pause', time: time }));
                 }
@@ -671,6 +694,7 @@
                 if (peerConnection) {
                     peerConnection.close();
                 }
+                if (syncInterval) clearInterval(syncInterval);
                 stopScanner(hostScanner);
                 stopScanner(clientScanner);
                 window.location.reload();
