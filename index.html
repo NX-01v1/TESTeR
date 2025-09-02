@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC 同時再生</title>
+    <title>WebRTC音楽同期サイト</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -17,668 +15,263 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            padding: 1rem;
         }
-
         .container {
             background-color: #2d3748;
-            padding: 2.5rem;
             border-radius: 1rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            width: 100%;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
             max-width: 600px;
+            width: 100%;
+            text-align: center;
         }
-
-        .card {
-            background-color: #4a5568;
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            margin-bottom: 1.5rem;
+        .title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #48bb78;
+            margin-bottom: 1rem;
         }
-
-        .button {
-            transition: background-color 0.3s, transform 0.1s;
-            cursor: pointer;
+        .subtitle {
+            color: #a0aec0;
+            margin-bottom: 2rem;
         }
-
-        .button:hover {
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #cbd5e0;
+        }
+        .btn {
+            background-color: #48bb78;
+            color: #1a202c;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(72, 187, 120, 0.4);
         }
-
-        .button:active {
-            transform: translateY(0);
-        }
-
-        .input-text {
+        .input-field {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
             border: 1px solid #4a5568;
             background-color: #2d3748;
             color: #e2e8f0;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-            width: 100%;
+            margin-top: 1rem;
         }
-
-        .input-file {
-            border: 2px dashed #4a5568;
-            padding: 1rem;
-            border-radius: 0.75rem;
-            text-align: center;
-            cursor: pointer;
-            transition: background-color 0.3s;
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #48bb78;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+            display: none; /* Initially hidden */
         }
-
-        .input-file:hover {
-            background-color: #2d3748;
-        }
-
-        .file-label {
-            display: block;
-            cursor: pointer;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .message-box {
-            position: fixed;
-            top: 2rem;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #38a169;
-            color: #fff;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            z-index: 100;
-        }
-
-        .message-box.show {
-            opacity: 1;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white font-sans flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-900 text-gray-100">
+    <div class="container mx-auto p-8 rounded-2xl shadow-lg bg-gray-800">
+        <h1 class="text-3xl font-bold text-green-400 mb-4">WebRTC 音楽同期サイト</h1>
+        <p class="text-gray-400 mb-8">P2Pで音楽を同期再生します</p>
 
-    <div class="container mx-auto p-8 bg-gray-800 rounded-3xl shadow-lg">
-        <h1 class="text-3xl font-bold text-center mb-6 text-indigo-400">音楽同時再生サイト</h1>
-        <p class="text-center mb-6 text-gray-400">
-            P2P（ピアツーピア）で音楽を同期して再生します。
-        </p>
-
-        <div id="room-selection" class="card">
-            <h2 class="text-xl font-semibold mb-4 text-indigo-300">部屋を作成または参加</h2>
-            <div class="space-y-4">
-                <div>
-                    <button id="create-room" class="button w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-xl shadow-md">
-                        新しい部屋を作成
-                    </button>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <input id="room-id-input" type="text" placeholder="部屋IDを入力" class="input-text flex-grow focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button id="join-room" class="button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-xl shadow-md">
-                        参加
-                    </button>
-                </div>
+        <div class="space-y-6">
+            <div class="p-6 bg-gray-700 rounded-xl">
+                <h2 class="section-title">ホスト（再生を開始する人）</h2>
+                <button id="hostButton" class="btn w-full">セッションを開始してURLを生成</button>
             </div>
-            <div id="room-info" class="flex items-center mt-4 hidden">
-                <p id="room-id-display" class="font-mono bg-gray-700 p-2 rounded-l-lg text-sm flex-grow">ここにURLが表示されます</p>
-                <button id="copy-url-btn" class="button bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-r-lg shadow-md">
-                    コピー
-                </button>
+
+            <div class="p-6 bg-gray-700 rounded-xl">
+                <h2 class="section-title">クライアント（参加する人）</h2>
+                <button id="clientButton" class="btn w-full">URLからセッションに参加</button>
+            </div>
+            
+            <div class="p-6 bg-gray-700 rounded-xl">
+                <h2 class="section-title">共有/入力用URL</h2>
+                <input type="text" id="urlInput" readonly class="input-field cursor-pointer">
+                <button id="copyButton" class="btn mt-4 w-full">URLをコピー</button>
             </div>
         </div>
-
-        <div id="file-selection" class="card hidden">
-            <h2 class="text-xl font-semibold mb-4 text-indigo-300">音楽ファイルを選択</h2>
-            <p class="text-sm mb-4 text-gray-400">
-                ホスト（部屋の作成者）のみがファイルを選択できます。
-            </p>
-            <div class="input-file">
-                <label for="audio-file" class="file-label">
-                    <span class="text-gray-400">ファイルをドラッグ＆ドロップまたはクリックして選択</span>
-                    <input type="file" id="audio-file" accept="audio/*" class="hidden">
-                </label>
-            </div>
-        </div>
-
-        <div id="player-controls" class="card hidden">
-            <h2 class="text-xl font-semibold mb-4 text-indigo-300">プレイヤーコントロール</h2>
-            <div class="flex items-center justify-between space-x-4 mb-4">
-                <button id="play-pause" class="button bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-xl shadow-md flex-grow">
-                    再生
-                </button>
-                <button id="stop" class="button bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-xl shadow-md flex-grow">
-                    停止
-                </button>
-            </div>
-            <div id="progress-container" class="w-full h-2 bg-gray-600 rounded-full cursor-pointer relative">
-                <div id="progress-bar" class="h-full bg-green-500 rounded-full" style="width: 0%;"></div>
-            </div>
-            <p id="time-display" class="text-right text-sm mt-2 text-gray-400">0:00 / 0:00</p>
-        </div>
-
-        <div id="connection-status" class="card">
-            <h2 class="text-xl font-semibold mb-4 text-indigo-300">接続ステータス</h2>
-            <p id="status-text" class="text-center text-gray-400">接続待機中...</p>
-        </div>
+        
+        <div id="loader" class="loader"></div>
+        <p id="statusMessage" class="mt-4 text-sm text-gray-300"></p>
+        
+        <!-- WebRTCで送信されるSDPをここに設定する -->
+        <audio id="audioPlayer" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
     </div>
 
-    <div id="message-box" class="message-box hidden"></div>
+    <script>
+        const hostButton = document.getElementById('hostButton');
+        const clientButton = document.getElementById('clientButton');
+        const copyButton = document.getElementById('copyButton');
+        const urlInput = document.getElementById('urlInput');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const statusMessage = document.getElementById('statusMessage');
+        const loader = document.getElementById('loader');
 
-    <script type="module">
-        // FirebaseおよびFirestoreのインポートは今回は使用しないためコメントアウト
-        // import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // このアプリでは外部サービス（Firebase）を使用しないため、以下の変数は使用しません
-        // const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        // const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        // const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        const createRoomBtn = document.getElementById('create-room');
-        const joinRoomBtn = document.getElementById('join-room');
-        const roomIdInput = document.getElementById('room-id-input');
-        const roomIdDisplay = document.getElementById('room-id-display');
-        const roomInfo = document.getElementById('room-info');
-        const copyUrlBtn = document.getElementById('copy-url-btn');
-        const playPauseBtn = document.getElementById('play-pause');
-        const stopBtn = document.getElementById('stop');
-        const audioFile = document.getElementById('audio-file');
-        const progressContainer = document.getElementById('progress-container');
-        const progressBar = document.getElementById('progress-bar');
-        const timeDisplay = document.getElementById('time-display');
-        const statusText = document.getElementById('status-text');
-
-        const roomSelectionSection = document.getElementById('room-selection');
-        const fileSelectionSection = document.getElementById('file-selection');
-        const playerControlsSection = document.getElementById('player-controls');
-
-        let isHost = false;
         let peerConnection;
-        let dataChannel;
-        let audioContext;
-        let audioSource;
-        let audioBuffer;
-        let isPlaying = false;
-        let startTime;
-        let playbackTime = 0;
-        let playbackOffset = 0;
-        let audioDuration = 0;
-        let isSeeking = false;
-        // Queue to store ICE candidates received before the remote description is set.
-        let iceCandidatesQueue = [];
-
-        const iceServers = {
-            'iceServers': [
-                { 'urls': 'stun:stun.l.google.com:19302' },
-                { 'urls': 'stun:stun1.l.google.com:19302' },
-            ]
-        };
-
-        const showMessage = (message, type = 'success', duration = 3000) => {
-            const messageBox = document.getElementById('message-box');
-            messageBox.textContent = message;
-            messageBox.className = 'message-box show';
-            if (type === 'success') {
-                messageBox.style.backgroundColor = '#38a169';
-            } else if (type === 'error') {
-                messageBox.style.backgroundColor = '#e53e3e';
-            }
-            setTimeout(() => {
-                messageBox.className = 'message-box';
-            }, duration);
-        };
-
-        const generateRoomId = () => {
-            return Math.random().toString(36).substring(2, 9);
-        };
-
-        const initAudioContext = () => {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        };
-
-        const updateProgressBar = () => {
-            if (audioBuffer) {
-                const elapsed = isPlaying ? audioContext.currentTime - startTime + playbackOffset : playbackOffset;
-                const percentage = (elapsed / audioBuffer.duration) * 100;
-                progressBar.style.width = `${percentage}%`;
-                updateTimeDisplay(elapsed, audioBuffer.duration);
-            }
-        };
-
-        const updateTimeDisplay = (currentTime, duration) => {
-            const formatTime = (seconds) => {
-                const minutes = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${minutes}:${secs.toString().padStart(2, '0')}`;
-            };
-            timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
-        };
-
-        setInterval(updateProgressBar, 100);
-
-        progressContainer.addEventListener('mousedown', (e) => {
-            if (!audioBuffer) return;
-            isSeeking = true;
-            seek(e);
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (isSeeking) {
-                seek(e);
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            isSeeking = false;
-        });
-
-        const seek = (e) => {
-            const rect = progressContainer.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const newTime = (clickX / rect.width) * audioBuffer.duration;
-            if (isHost) {
-                dataChannel.send(JSON.stringify({ type: 'seek', time: newTime }));
-                handleSeek(newTime);
-            }
-            updateTimeDisplay(newTime, audioBuffer.duration);
-        };
-
-        const handleSeek = (time) => {
-            if (isPlaying) {
-                audioSource.stop();
-            }
-            playbackOffset = time;
-            if (isPlaying) {
-                playAudio(playbackOffset);
-            }
-        };
-
-        const playAudio = (offset = 0) => {
-            if (!audioBuffer) return;
-            if (audioSource) {
-                audioSource.stop();
-                audioSource = null;
-            }
-            audioSource = audioContext.createBufferSource();
-            audioSource.buffer = audioBuffer;
-            audioSource.connect(audioContext.destination);
-            audioSource.start(0, offset);
-            startTime = audioContext.currentTime - offset;
-            isPlaying = true;
-            playPauseBtn.textContent = '一時停止';
-            playbackOffset = offset;
-        };
-
-        const pauseAudio = () => {
-            if (audioSource) {
-                audioSource.stop();
-            }
-            playbackOffset = audioContext.currentTime - startTime;
-            isPlaying = false;
-            playPauseBtn.textContent = '再生';
-        };
-
-        const stopAudio = () => {
-            if (audioSource) {
-                audioSource.stop();
-            }
-            playbackOffset = 0;
-            isPlaying = false;
-            playPauseBtn.textContent = '再生';
-            progressBar.style.width = '0%';
-            updateTimeDisplay(0, audioDuration);
-        };
-
-        const handleFile = (file) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const audioData = e.target.result;
-                // Web Audio APIでデコード
-                initAudioContext();
-                audioContext.decodeAudioData(audioData, (buffer) => {
-                    audioBuffer = buffer;
-                    audioDuration = buffer.duration;
-                    updateTimeDisplay(0, audioDuration);
-                    if (dataChannel && dataChannel.readyState === 'open') {
-                        dataChannel.send(JSON.stringify({ type: 'file_metadata', duration: audioDuration }));
-                        sendAudioDataInChunks(audioData);
-                    }
-                    showMessage('音楽ファイルがロードされました。');
-                }, (error) => {
-                    console.error('オーディオのデコードに失敗しました:', error);
-                    showMessage('オーディオファイルのデコードに失敗しました。', 'error');
-                });
-            };
-            reader.readAsArrayBuffer(file);
-        };
-
-        const sendAudioDataInChunks = (audioData) => {
-            const chunkSize = 16384;
-            const totalSize = audioData.byteLength;
-            let offset = 0;
-
-            const sendChunk = () => {
-                if (offset < totalSize) {
-                    const chunk = audioData.slice(offset, offset + chunkSize);
-                    dataChannel.send(chunk);
-                    offset += chunkSize;
-                    setTimeout(sendChunk, 1);
-                } else {
-                    dataChannel.send(JSON.stringify({ type: 'file_end' }));
-                    showMessage('音楽ファイルの送信が完了しました。');
-                }
-            };
-            dataChannel.send(JSON.stringify({ type: 'file_start', size: totalSize }));
-            sendChunk();
-        };
-
-        const receiveAudioData = (data) => {
-            const metadata = JSON.parse(data);
-            if (metadata.type === 'file_metadata') {
-                audioDuration = metadata.duration;
-                updateTimeDisplay(0, audioDuration);
-            } else if (metadata.type === 'file_start') {
-                receivedAudioChunks = [];
-                receivedAudioSize = metadata.size;
-                showMessage('音楽ファイルの受信を開始しました...');
-            } else if (metadata.type === 'file_end') {
-                const receivedData = new Blob(receivedAudioChunks);
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    initAudioContext();
-                    audioContext.decodeAudioData(e.target.result, (buffer) => {
-                        audioBuffer = buffer;
-                        showMessage('音楽ファイルの受信が完了し、再生準備ができました。');
-                    }, (error) => {
-                        console.error('オーディオのデコードに失敗しました:', error);
-                        showMessage('オーディオファイルのデコードに失敗しました。', 'error');
-                    });
-                };
-                reader.readAsArrayBuffer(receivedData);
-            } else {
-                receivedAudioChunks.push(data);
-            }
-        };
-
-        // UIの表示を切り替える関数
-        const showPlayerUI = () => {
-            roomSelectionSection.classList.add('hidden');
-            if (isHost) {
-                fileSelectionSection.classList.remove('hidden');
-            }
-            playerControlsSection.classList.remove('hidden');
-        };
-
-        createRoomBtn.addEventListener('click', async () => {
-            isHost = true;
-            const roomId = generateRoomId();
-            roomIdInput.value = roomId;
-            const roomUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-            roomIdDisplay.textContent = roomUrl;
-            roomInfo.classList.remove('hidden');
-            statusText.textContent = '部屋を作成しました。URLのハッシュをコピーして他の人と共有してください。';
-            
-            try {
-                await createOfferAndSend(roomId);
-            } catch (error) {
-                console.error('SDP生成エラー:', error);
-                showMessage('接続情報の生成に失敗しました。ブラウザのコンソールを確認してください。', 'error');
-            }
-        });
-
-        joinRoomBtn.addEventListener('click', async () => {
-            isHost = false;
-            const roomId = roomIdInput.value;
-            if (!roomId) {
-                showMessage('部屋IDを入力してください。', 'error');
-                return;
-            }
-            statusText.textContent = `部屋ID '${roomId}' に接続中...`;
-            
-            try {
-                await createAnswerAndSend(roomId);
-            } catch (error) {
-                console.error('SDP受信エラー:', error);
-                showMessage('接続情報の受信に失敗しました。URLを確認してください。', 'error');
-            }
-        });
-
-        // URLコピーボタンのイベントリスナー
-        copyUrlBtn.addEventListener('click', () => {
-            const urlToCopy = roomIdDisplay.textContent;
-            try {
-                navigator.clipboard.writeText(urlToCopy);
-                showMessage('URLがクリップボードにコピーされました！');
-            } catch (err) {
-                // Fallback for browsers that don't support navigator.clipboard
-                const el = document.createElement('textarea');
-                el.value = urlToCopy;
-                el.setAttribute('readonly', '');
-                el.style.position = 'absolute';
-                el.style.left = '-9999px';
-                document.body.appendChild(el);
-                el.select();
-                document.execCommand('copy');
-                document.body.removeChild(el);
-                showMessage('URLがクリップボードにコピーされました！');
-            }
-        });
-
-        playPauseBtn.addEventListener('click', () => {
-            if (isHost) {
-                if (isPlaying) {
-                    dataChannel.send(JSON.stringify({ type: 'pause', time: audioContext.currentTime - startTime }));
-                    pauseAudio();
-                } else {
-                    dataChannel.send(JSON.stringify({ type: 'play', time: audioContext.currentTime - startTime }));
-                    playAudio(audioContext.currentTime - startTime);
-                }
-            }
-        });
-
-        stopBtn.addEventListener('click', () => {
-            if (isHost) {
-                dataChannel.send(JSON.stringify({ type: 'stop' }));
-                stopAudio();
-            }
-        });
-
-        audioFile.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                handleFile(file);
-            }
-        });
         
-        // Peer Connection の設定
-        const setupPeerConnection = () => {
+        // STUNサーバー
+        const iceServers = {
+            'iceServers': [{
+                'urls': 'stun:stun.l.google.com:19302'
+            }]
+        };
+
+        // SDPをBase64でエンコード/デコード
+        function encodeSdp(sdp) {
+            return btoa(JSON.stringify(sdp));
+        }
+
+        function decodeSdp(base64) {
+            return JSON.parse(atob(base64));
+        }
+
+        // P2P接続の初期化
+        async function initializePeerConnection() {
             peerConnection = new RTCPeerConnection(iceServers);
+
+            // データチャネルの作成（音楽再生の同期信号用）
+            const dataChannel = peerConnection.createDataChannel("audio-sync");
+            dataChannel.onopen = (event) => {
+                statusMessage.textContent = 'P2P接続が確立しました。';
+                loader.style.display = 'none';
+                console.log("Data Channel is open.");
+                
+                // ホスト側が再生を開始
+                if (window.location.hash.includes('host')) {
+                    setTimeout(() => {
+                        audioPlayer.play();
+                        // 再生開始信号を送信
+                        dataChannel.send('play');
+                    }, 100);
+                }
+            };
+            
+            // データチャネルで信号を受信
+            dataChannel.onmessage = (event) => {
+                if (event.data === 'play') {
+                    // クライアント側が信号を受信したら再生
+                    audioPlayer.play();
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                statusMessage.textContent = `接続状態: ${peerConnection.iceConnectionState}`;
+            };
 
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    // ICE候補をURLハッシュで交換
-                    const roomId = roomIdInput.value;
-                    const candidateData = JSON.stringify({
-                        type: 'candidate',
-                        candidate: event.candidate.toJSON()
-                    });
-                    const hashData = `${roomId}:${encodeURIComponent(candidateData)}`;
-                    window.location.hash = hashData; // Direct hash update
-                    showMessage('ICE候補がURLに共有されました。');
+                    // ICE候補はSDPに含めているため、ここでは特別な処理は不要
                 }
             };
-        };
+        }
 
-        // Function to process queued ICE candidates
-        const addQueuedCandidates = async () => {
-            while (iceCandidatesQueue.length > 0) {
-                const candidate = iceCandidatesQueue.shift();
-                try {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                    console.log('Successfully added a queued ICE candidate.');
-                } catch (e) {
-                    console.error('Error adding queued ICE candidate:', e);
-                }
+        // URLからハッシュを解析して処理
+        async function handleUrlHash() {
+            const hash = window.location.hash;
+            if (hash.startsWith('#offer=')) {
+                // クライアント側としてSDP offerを処理
+                statusMessage.textContent = 'ホストからのSDPを処理中...';
+                loader.style.display = 'block';
+
+                const offerData = hash.replace('#offer=', '');
+                const decodedOffer = decodeSdp(offerData);
+
+                initializePeerConnection();
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(decodedOffer));
+
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                const encodedAnswer = encodeSdp(peerConnection.localDescription);
+                const returnUrl = `${window.location.href.split('#')[0]}#answer=${encodedAnswer}`;
+
+                urlInput.value = returnUrl;
+                statusMessage.textContent = '返送用URLが生成されました。このURLをホストに送ってください。';
+                
+            } else if (hash.startsWith('#answer=')) {
+                // ホスト側としてSDP answerを処理
+                statusMessage.textContent = 'クライアントからのSDPを処理中...';
+                loader.style.display = 'block';
+
+                const answerData = hash.replace('#answer=', '');
+                const decodedAnswer = decodeSdp(answerData);
+
+                initializePeerConnection();
+                // ICE候補交換の完了を待ってからanswerを設定する
+                await new Promise(resolve => {
+                    const checkInterval = setInterval(() => {
+                        if (peerConnection.localDescription) {
+                            clearInterval(checkInterval);
+                            resolve();
+                        }
+                    }, 100);
+                });
+                
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(decodedAnswer));
+                statusMessage.textContent = '接続確立中...';
             }
-        };
+        }
 
-        const createOfferAndSend = async (roomId) => {
-            setupPeerConnection();
-            dataChannel = peerConnection.createDataChannel('audio-sync');
-            setupDataChannelEvents();
+        // ホスト側のSDP offer生成
+        hostButton.onclick = async () => {
+            statusMessage.textContent = 'SDPを生成中...';
+            loader.style.display = 'block';
             
+            initializePeerConnection();
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             
-            const offerData = JSON.stringify({ type: 'offer', sdp: peerConnection.localDescription.sdp });
-            const hashData = `${roomId}:${encodeURIComponent(offerData)}`;
-            window.location.hash = hashData; // Direct hash update
-            
-            statusText.textContent = '部屋を作成しました。URLのハッシュをコピーして他の人と共有してください。';
-        };
-
-        const createAnswerAndSend = async (roomId) => {
-            setupPeerConnection();
-            
-            peerConnection.ondatachannel = (event) => {
-                dataChannel = event.channel;
-                setupDataChannelEvents();
-            };
-            
-            const urlHash = window.location.hash.substring(1);
-            if (!urlHash) {
-                showMessage('URLに部屋の情報がありません。ホストにURLを尋ねてください。', 'error');
-                return;
-            }
-
-            const parts = urlHash.split(':');
-            if (parts.length < 2) {
-                showMessage('URLの形式が正しくありません。', 'error');
-                return;
-            }
-            
-            const [urlRoomId, encodedData] = parts;
-            if (urlRoomId !== roomId) {
-                showMessage('URLの部屋IDが入力されたIDと一致しません。', 'error');
-                return;
-            }
-            
-            const data = JSON.parse(decodeURIComponent(encodedData));
-            if (data.type === 'offer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
-                addQueuedCandidates(); // Process any candidates received before the offer
-                
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                
-                const answerData = JSON.stringify({ type: 'answer', sdp: peerConnection.localDescription.sdp });
-                const hashData = `${roomId}:${encodeURIComponent(answerData)}`;
-                window.location.hash = hashData; // Direct hash update
-                
-                statusText.textContent = '接続が完了しました。音楽が送られてくるのを待っています...';
-            }
-        };
-
-        const setupDataChannelEvents = () => {
-            let receivedAudioChunks = [];
-            let receivedAudioSize = 0;
-
-            dataChannel.onopen = (event) => {
-                console.log('Data Channel is open!');
-                showMessage('ピアと接続しました！');
-                statusText.textContent = 'ピアと接続済み。';
-                showPlayerUI();
-            };
-
-            dataChannel.onclose = () => {
-                console.log('Data Channel is closed!');
-                showMessage('ピアとの接続が切れました。', 'error');
-                statusText.textContent = '接続が切れました。';
-                // リロードを促す
-                setTimeout(() => window.location.reload(), 3000);
-            };
-
-            dataChannel.onmessage = (event) => {
-                const data = event.data;
-                if (typeof data === 'string') {
-                    const message = JSON.parse(data);
-                    switch (message.type) {
-                        case 'play':
-                            playAudio(message.time);
-                            break;
-                        case 'pause':
-                            pauseAudio();
-                            break;
-                        case 'stop':
-                            stopAudio();
-                            break;
-                        case 'seek':
-                            handleSeek(message.time);
-                            break;
-                        case 'file_metadata':
-                        case 'file_start':
-                        case 'file_end':
-                            receiveAudioData(data);
-                            break;
-                    }
-                } else if (data instanceof ArrayBuffer) {
-                    receivedAudioChunks.push(data);
-                }
-            };
-        };
-        
-        // URLハッシュの変更を監視し、SDPやICE候補を処理する
-        window.addEventListener('hashchange', async () => {
-            const urlHash = window.location.hash.substring(1);
-            if (!urlHash) return;
-
-            const parts = urlHash.split(':');
-            if (parts.length < 2) return;
-            
-            const [urlRoomId, encodedData] = parts;
-            let data;
-            try {
-                data = JSON.parse(decodeURIComponent(encodedData));
-            } catch (e) {
-                console.error('Failed to parse URL hash data:', e);
-                return;
-            }
-
-            if (data.type === 'offer' && !isHost) {
-                // 既にオファーを受け取っている場合は何もしない
-            } else if (data.type === 'answer' && isHost) {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
-                addQueuedCandidates(); // Process any candidates received before the answer
-                showMessage('接続が完了しました！');
-                statusText.textContent = 'ピアと接続済み。';
-            } else if (data.type === 'candidate') {
-                if (peerConnection && peerConnection.remoteDescription) {
-                    try {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                        showMessage('ICE候補を受信しました。');
-                    } catch (e) {
-                        console.error('Error adding received ICE candidate:', e);
-                    }
+            // ICE候補がSDPにすべて含まれるまで待機
+            await new Promise(resolve => {
+                if (peerConnection.iceGatheringState === 'complete') {
+                    resolve();
                 } else {
-                    console.log('Queuing ICE candidate as remote description is not yet set.');
-                    iceCandidatesQueue.push(data.candidate);
+                    peerConnection.onicegatheringstatechange = () => {
+                        if (peerConnection.iceGatheringState === 'complete') {
+                            resolve();
+                        }
+                    };
                 }
-            }
-        });
+            });
 
-        // ページ読み込み時にURLハッシュをチェックして、部屋に参加するかどうかを判断する
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomIdFromUrl = urlParams.get('room');
-        if (roomIdFromUrl) {
-            isHost = false;
-            roomIdInput.value = roomIdFromUrl;
-            joinRoomBtn.click(); // 自動で参加ボタンをクリック
-        }
+            const encodedOffer = encodeSdp(peerConnection.localDescription);
+            const shareUrl = `${window.location.href.split('#')[0]}#offer=${encodedOffer}&role=host`;
+            urlInput.value = shareUrl;
+            statusMessage.textContent = 'URLが生成されました。コピーしてクライアントに送ってください。';
+            loader.style.display = 'none';
+        };
+
+        // クライアント側の処理開始
+        clientButton.onclick = async () => {
+             handleUrlHash();
+        };
+
+        // URLコピー機能
+        copyButton.onclick = () => {
+            urlInput.select();
+            document.execCommand('copy');
+            statusMessage.textContent = 'URLをクリップボードにコピーしました！';
+        };
+
+        // ページ読み込み時にURLハッシュをチェック
+        window.onload = () => {
+            const hash = window.location.hash;
+            if (hash.startsWith('#offer=') || hash.startsWith('#answer=')) {
+                handleUrlHash();
+            }
+        };
+
     </script>
 </body>
 </html>
