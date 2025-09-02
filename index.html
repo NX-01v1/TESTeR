@@ -207,6 +207,8 @@
         let playbackOffset = 0;
         let audioDuration = 0;
         let isSeeking = false;
+        // Queue to store ICE candidates received before the remote description is set.
+        let iceCandidatesQueue = [];
 
         const iceServers = {
             'iceServers': [
@@ -421,7 +423,12 @@
             roomInfo.classList.remove('hidden');
             statusText.textContent = '部屋を作成しました。URLのハッシュをコピーして他の人と共有してください。';
             
-            await createOfferAndSend(roomId);
+            try {
+                await createOfferAndSend(roomId);
+            } catch (error) {
+                console.error('SDP生成エラー:', error);
+                showMessage('接続情報の生成に失敗しました。ブラウザのコンソールを確認してください。', 'error');
+            }
         });
 
         joinRoomBtn.addEventListener('click', async () => {
@@ -433,7 +440,12 @@
             }
             statusText.textContent = `部屋ID '${roomId}' に接続中...`;
             
-            await createAnswerAndSend(roomId);
+            try {
+                await createAnswerAndSend(roomId);
+            } catch (error) {
+                console.error('SDP受信エラー:', error);
+                showMessage('接続情報の受信に失敗しました。URLを確認してください。', 'error');
+            }
         });
 
         // URLコピーボタンのイベントリスナー
@@ -495,12 +507,24 @@
                         type: 'candidate',
                         candidate: event.candidate.toJSON()
                     });
-                    const url = new URL(window.location);
-                    url.hash = `${roomId}:${encodeURIComponent(candidateData)}`;
-                    window.history.pushState(null, '', url);
+                    const hashData = `${roomId}:${encodeURIComponent(candidateData)}`;
+                    window.location.hash = hashData; // Direct hash update
                     showMessage('ICE候補がURLに共有されました。');
                 }
             };
+        };
+
+        // Function to process queued ICE candidates
+        const addQueuedCandidates = async () => {
+            while (iceCandidatesQueue.length > 0) {
+                const candidate = iceCandidatesQueue.shift();
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    console.log('Successfully added a queued ICE candidate.');
+                } catch (e) {
+                    console.error('Error adding queued ICE candidate:', e);
+                }
+            }
         };
 
         const createOfferAndSend = async (roomId) => {
@@ -512,9 +536,8 @@
             await peerConnection.setLocalDescription(offer);
             
             const offerData = JSON.stringify({ type: 'offer', sdp: peerConnection.localDescription.sdp });
-            const url = new URL(window.location);
-            url.hash = `${roomId}:${encodeURIComponent(offerData)}`;
-            window.history.pushState(null, '', url);
+            const hashData = `${roomId}:${encodeURIComponent(offerData)}`;
+            window.location.hash = hashData; // Direct hash update
             
             statusText.textContent = '部屋を作成しました。URLのハッシュをコピーして他の人と共有してください。';
         };
@@ -548,14 +571,14 @@
             const data = JSON.parse(decodeURIComponent(encodedData));
             if (data.type === 'offer') {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
+                addQueuedCandidates(); // Process any candidates received before the offer
                 
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
                 
                 const answerData = JSON.stringify({ type: 'answer', sdp: peerConnection.localDescription.sdp });
-                const url = new URL(window.location);
-                url.hash = `${roomId}:${encodeURIComponent(answerData)}`;
-                window.history.pushState(null, '', url);
+                const hashData = `${roomId}:${encodeURIComponent(answerData)}`;
+                window.location.hash = hashData; // Direct hash update
                 
                 statusText.textContent = '接続が完了しました。音楽が送られてくるのを待っています...';
             }
@@ -618,20 +641,32 @@
             if (parts.length < 2) return;
             
             const [urlRoomId, encodedData] = parts;
-            const data = JSON.parse(decodeURIComponent(encodedData));
+            let data;
+            try {
+                data = JSON.parse(decodeURIComponent(encodedData));
+            } catch (e) {
+                console.error('Failed to parse URL hash data:', e);
+                return;
+            }
 
             if (data.type === 'offer' && !isHost) {
                 // 既にオファーを受け取っている場合は何もしない
             } else if (data.type === 'answer' && isHost) {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
+                addQueuedCandidates(); // Process any candidates received before the answer
                 showMessage('接続が完了しました！');
                 statusText.textContent = 'ピアと接続済み。';
             } else if (data.type === 'candidate') {
-                try {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                    showMessage('ICE候補を受信しました。');
-                } catch (e) {
-                    console.error('Error adding received ICE candidate:', e);
+                if (peerConnection && peerConnection.remoteDescription) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        showMessage('ICE候補を受信しました。');
+                    } catch (e) {
+                        console.error('Error adding received ICE candidate:', e);
+                    }
+                } else {
+                    console.log('Queuing ICE candidate as remote description is not yet set.');
+                    iceCandidatesQueue.push(data.candidate);
                 }
             }
         });
