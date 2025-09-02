@@ -3,275 +3,325 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC音楽同期サイト</title>
+    <title>同期音楽プレイヤー</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1a202c;
-            color: #e2e8f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 1rem;
+            background-color: #f0f2f5;
         }
         .container {
-            background-color: #2d3748;
-            border-radius: 1rem;
-            padding: 2rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
             max-width: 600px;
-            width: 100%;
-            text-align: center;
         }
-        .title {
-            font-size: 2rem;
-            font-weight: 600;
-            color: #48bb78;
-            margin-bottom: 1rem;
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: #cbd5e1;
+            border-radius: 9999px;
+            height: 8px;
         }
-        .subtitle {
-            color: #a0aec0;
-            margin-bottom: 2rem;
-        }
-        .section-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            color: #cbd5e0;
-        }
-        .btn {
-            background-color: #48bb78;
-            color: #1a202c;
-            font-weight: bold;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(72, 187, 120, 0.4);
-        }
-        .input-field {
-            width: 100%;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-            border: 1px solid #4a5568;
-            background-color: #2d3748;
-            color: #e2e8f0;
-            margin-top: 1rem;
-        }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #48bb78;
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4f46e5;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 2rem auto;
-            display: none; /* Initially hidden */
+            cursor: pointer;
+            margin-top: -4px;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        #audio-controls {
+            display: flex;
+            align-items: center;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100">
-    <div class="container mx-auto p-8 rounded-2xl shadow-lg bg-gray-800">
-        <h1 class="text-3xl font-bold text-green-400 mb-4">WebRTC 音楽同期サイト</h1>
-        <p class="text-gray-400 mb-8">P2Pで音楽を同期再生します</p>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="container bg-white shadow-xl rounded-2xl p-8 space-y-6">
+        <h1 class="text-3xl font-bold text-gray-800 text-center mb-6">同期音楽プレイヤー</h1>
 
-        <div class="space-y-6">
-            <div class="p-6 bg-gray-700 rounded-xl">
-                <h2 class="section-title">ホスト（再生を開始する人）</h2>
-                <button id="hostButton" class="btn w-full">セッションを開始してURLを生成</button>
+        <!-- Music and control section -->
+        <div class="space-y-4">
+            <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-center">
+                <p class="text-gray-600 text-lg" id="song-title">サンプル曲</p>
             </div>
-
-            <div class="p-6 bg-gray-700 rounded-xl">
-                <h2 class="section-title">クライアント（参加する人）</h2>
-                <button id="clientButton" class="btn w-full">URLからセッションに参加</button>
-            </div>
-            
-            <div class="p-6 bg-gray-700 rounded-xl">
-                <h2 class="section-title">共有/入力用URL</h2>
-                <input type="text" id="urlInput" readonly class="input-field cursor-pointer">
-                <button id="copyButton" class="btn mt-4 w-full">URLをコピー</button>
+            <div id="audio-controls" class="space-x-4">
+                <button id="play-pause-btn" class="flex-shrink-0 bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                    <svg id="play-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                    <svg id="pause-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                </button>
+                <div class="w-full flex items-center space-x-2">
+                    <span id="current-time" class="text-sm text-gray-500">0:00</span>
+                    <input type="range" id="seek-bar" class="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer" value="0">
+                    <span id="duration" class="text-sm text-gray-500">0:00</span>
+                </div>
             </div>
         </div>
-        
-        <div id="loader" class="loader"></div>
-        <p id="statusMessage" class="mt-4 text-sm text-gray-300"></p>
-        
-        <!-- WebRTCで送信されるSDPをここに設定する -->
-        <audio id="audioPlayer" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
-    </div>
 
-    <script>
-        const hostButton = document.getElementById('hostButton');
-        const clientButton = document.getElementById('clientButton');
-        const copyButton = document.getElementById('copyButton');
-        const urlInput = document.getElementById('urlInput');
-        const audioPlayer = document.getElementById('audioPlayer');
-        const statusMessage = document.getElementById('statusMessage');
-        const loader = document.getElementById('loader');
-
-        let peerConnection;
-        
-        // STUNサーバー
-        const iceServers = {
-            'iceServers': [{
-                'urls': 'stun:stun.l.google.com:19302'
-            }]
-        };
-
-        // SDPをBase64でエンコード/デコード
-        function encodeSdp(sdp) {
-            return btoa(JSON.stringify(sdp));
-        }
-
-        function decodeSdp(base64) {
-            return JSON.parse(atob(base64));
-        }
-
-        // P2P接続の初期化
-        async function initializePeerConnection() {
-            peerConnection = new RTCPeerConnection(iceServers);
-
-            // データチャネルの作成（音楽再生の同期信号用）
-            const dataChannel = peerConnection.createDataChannel("audio-sync");
-            dataChannel.onopen = (event) => {
-                statusMessage.textContent = 'P2P接続が確立しました。';
-                loader.style.display = 'none';
-                console.log("Data Channel is open.");
-                
-                // ホスト側が再生を開始
-                if (window.location.hash.includes('host')) {
-                    setTimeout(() => {
-                        audioPlayer.play();
-                        // 再生開始信号を送信
-                        dataChannel.send('play');
-                    }, 100);
-                }
-            };
+        <div class="mt-8 space-y-4">
+            <!-- Share link section -->
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">共有リンク</label>
+                <div class="flex space-x-2">
+                    <input type="text" id="share-link-input" class="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly>
+                    <button id="copy-btn" class="bg-indigo-600 text-white p-3 rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200">コピー</button>
+                </div>
+            </div>
             
-            // データチャネルで信号を受信
-            dataChannel.onmessage = (event) => {
-                if (event.data === 'play') {
-                    // クライアント側が信号を受信したら再生
-                    audioPlayer.play();
-                }
-            };
+            <!-- Connection status and logs -->
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">接続状態</label>
+                <p id="connection-status" class="text-sm text-gray-600">待機中...</p>
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">ログ</label>
+                <textarea id="log-area" class="w-full h-32 p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 resize-none" readonly></textarea>
+            </div>
+        </div>
+    </div>
+    <script>
+        // DOM要素
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const seekBar = document.getElementById('seek-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationEl = document.getElementById('duration');
+        const shareLinkInput = document.getElementById('share-link-input');
+        const copyBtn = document.getElementById('copy-btn');
+        const connectionStatusEl = document.getElementById('connection-status');
+        const logArea = document.getElementById('log-area');
 
-            peerConnection.oniceconnectionstatechange = () => {
-                statusMessage.textContent = `接続状態: ${peerConnection.iceConnectionState}`;
-            };
+        // Web Audio API
+        let audioContext;
+        let audioSource;
+        let audioBuffer;
+        let startTime = 0;
+        let playbackTime = 0;
+        let isPlaying = false;
 
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    // ICE候補はSDPに含めているため、ここでは特別な処理は不要
-                }
-            };
+        // WebRTC
+        let peerConnection;
+        let dataChannel;
+
+        // 定数
+        const STUN_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+        const localMusicFile = '/__static__/sample.mp3'; // デモ用のサンプル曲
+
+        // UIユーティリティ関数
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.value += `[${timestamp}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
         }
 
-        // URLからハッシュを解析して処理
-        async function handleUrlHash() {
-            const hash = window.location.hash;
-            if (hash.startsWith('#offer=')) {
-                // クライアント側としてSDP offerを処理
-                statusMessage.textContent = 'ホストからのSDPを処理中...';
-                loader.style.display = 'block';
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+        }
 
-                const offerData = hash.replace('#offer=', '');
-                const decodedOffer = decodeSdp(offerData);
+        // 初期化処理
+        window.onload = async () => {
+            log('ページをロードしました。');
+            try {
+                // サンプル曲のロード
+                const response = await fetch(localMusicFile);
+                const arrayBuffer = await response.arrayBuffer();
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                log('音楽ファイルを読み込みました。');
+                durationEl.textContent = formatTime(audioBuffer.duration);
+                seekBar.max = audioBuffer.duration;
+            } catch (error) {
+                log('音楽ファイルのロードに失敗しました: ' + error.message);
+            }
 
-                initializePeerConnection();
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(decodedOffer));
+            // URLからSDP情報を取得
+            const params = new URLSearchParams(window.location.search);
+            const offerSDP = params.get('offer');
 
+            if (offerSDP) {
+                log('URLからオファーSDPを検出しました。セッションに参加します...');
+                // オファーSDPが存在する場合、セッションに参加
+                await createPeerConnection();
+                const remoteDescription = new RTCSessionDescription({
+                    type: 'offer',
+                    sdp: decodeURIComponent(offerSDP)
+                });
+                await peerConnection.setRemoteDescription(remoteDescription);
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
 
-                const encodedAnswer = encodeSdp(peerConnection.localDescription);
-                const returnUrl = `${window.location.href.split('#')[0]}#answer=${encodedAnswer}`;
+                const answerSDP = encodeURIComponent(peerConnection.localDescription.sdp);
+                const newUrl = `${window.location.origin}${window.location.pathname}?answer=${answerSDP}`;
+                shareLinkInput.value = newUrl;
+                connectionStatusEl.textContent = '接続中...';
+            } else {
+                // オファーSDPが存在しない場合、セッションを作成
+                log('新しいセッションを作成します。');
+                await createPeerConnection();
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
 
-                urlInput.value = returnUrl;
-                statusMessage.textContent = '返送用URLが生成されました。このURLをホストに送ってください。';
-                
-            } else if (hash.startsWith('#answer=')) {
-                // ホスト側としてSDP answerを処理
-                statusMessage.textContent = 'クライアントからのSDPを処理中...';
-                loader.style.display = 'block';
+                const offerSDP = encodeURIComponent(peerConnection.localDescription.sdp);
+                const shareUrl = `${window.location.origin}${window.location.pathname}?offer=${offerSDP}`;
+                shareLinkInput.value = shareUrl;
+                connectionStatusEl.textContent = 'セッション作成済み。リンクを共有してください。';
+            }
 
-                const answerData = hash.replace('#answer=', '');
-                const decodedAnswer = decodeSdp(answerData);
+            // アンサーSDPがURLに追加された場合の処理
+            window.addEventListener('popstate', () => {
+                const updatedParams = new URLSearchParams(window.location.search);
+                const answerSDP = updatedParams.get('answer');
+                if (answerSDP && peerConnection.remoteDescription?.type !== 'answer') {
+                    handleAnswer(decodeURIComponent(answerSDP));
+                }
+            });
+        };
 
-                initializePeerConnection();
-                // ICE候補交換の完了を待ってからanswerを設定する
-                await new Promise(resolve => {
-                    const checkInterval = setInterval(() => {
-                        if (peerConnection.localDescription) {
-                            clearInterval(checkInterval);
-                            resolve();
-                        }
-                    }, 100);
-                });
-                
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(decodedAnswer));
-                statusMessage.textContent = '接続確立中...';
+        // WebRTCピア接続の作成
+        async function createPeerConnection() {
+            peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+            log('WebRTC PeerConnectionを作成しました。');
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    log('ICE候補を生成しました。');
+                    // ICE候補は共有する必要があるが、このデモではURLにSDPを埋め込むシンプルな方法のため、
+                    // candidate情報はSDPに含まれるものと仮定する
+                }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                log(`接続状態: ${peerConnection.connectionState}`);
+                if (peerConnection.connectionState === 'connected') {
+                    connectionStatusEl.textContent = '接続済み';
+                    log('P2P接続が確立しました。');
+                }
+            };
+
+            peerConnection.ondatachannel = (event) => {
+                dataChannel = event.channel;
+                setupDataChannelListeners();
+                log('DataChannelを受信しました。');
+            };
+
+            // オファーを作成する側がDataChannelを作成
+            const params = new URLSearchParams(window.location.search);
+            if (!params.get('offer')) {
+                dataChannel = peerConnection.createDataChannel('sync-channel');
+                setupDataChannelListeners();
+                log('DataChannelを作成しました。');
             }
         }
 
-        // ホスト側のSDP offer生成
-        hostButton.onclick = async () => {
-            statusMessage.textContent = 'SDPを生成中...';
-            loader.style.display = 'block';
-            
-            initializePeerConnection();
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            
-            // ICE候補がSDPにすべて含まれるまで待機
-            await new Promise(resolve => {
-                if (peerConnection.iceGatheringState === 'complete') {
-                    resolve();
-                } else {
-                    peerConnection.onicegatheringstatechange = () => {
-                        if (peerConnection.iceGatheringState === 'complete') {
-                            resolve();
-                        }
-                    };
+        // DataChannelリスナーの設定
+        function setupDataChannelListeners() {
+            dataChannel.onopen = () => log('DataChannelが開きました。');
+            dataChannel.onclose = () => log('DataChannelが閉じました。');
+            dataChannel.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                log(`メッセージを受信: ${JSON.stringify(message)}`);
+                if (message.type === 'play') {
+                    const { time } = message.payload;
+                    startPlayback(time);
+                } else if (message.type === 'pause') {
+                    const { time } = message.payload;
+                    pausePlayback(time);
                 }
+            };
+        }
+
+        // アンサーSDPの処理
+        async function handleAnswer(answerSDP) {
+            log('アンサーSDPを受信しました。');
+            const remoteDescription = new RTCSessionDescription({
+                type: 'answer',
+                sdp: answerSDP
             });
+            await peerConnection.setRemoteDescription(remoteDescription);
+            log('リモートSDPを設定しました。');
+        }
 
-            const encodedOffer = encodeSdp(peerConnection.localDescription);
-            const shareUrl = `${window.location.href.split('#')[0]}#offer=${encodedOffer}&role=host`;
-            urlInput.value = shareUrl;
-            statusMessage.textContent = 'URLが生成されました。コピーしてクライアントに送ってください。';
-            loader.style.display = 'none';
-        };
-
-        // クライアント側の処理開始
-        clientButton.onclick = async () => {
-             handleUrlHash();
-        };
-
-        // URLコピー機能
-        copyButton.onclick = () => {
-            urlInput.select();
-            document.execCommand('copy');
-            statusMessage.textContent = 'URLをクリップボードにコピーしました！';
-        };
-
-        // ページ読み込み時にURLハッシュをチェック
-        window.onload = () => {
-            const hash = window.location.hash;
-            if (hash.startsWith('#offer=') || hash.startsWith('#answer=')) {
-                handleUrlHash();
+        // 音楽再生の開始
+        function startPlayback(seekTime = 0) {
+            if (isPlaying) {
+                audioSource.stop();
+                audioSource.disconnect();
             }
-        };
+            audioSource = audioContext.createBufferSource();
+            audioSource.buffer = audioBuffer;
+            audioSource.connect(audioContext.destination);
+            audioSource.start(0, seekTime);
+            startTime = audioContext.currentTime - seekTime;
+            isPlaying = true;
+            playIcon.classList.add('hidden');
+            pauseIcon.classList.remove('hidden');
+            updateSeekBar();
+        }
 
+        // 音楽再生の一時停止
+        function pausePlayback(seekTime) {
+            if (isPlaying) {
+                audioSource.stop();
+                audioSource.disconnect();
+                playbackTime = seekTime;
+                isPlaying = false;
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        }
+
+        // 再生時間の更新
+        function updateSeekBar() {
+            if (isPlaying) {
+                const elapsedTime = audioContext.currentTime - startTime;
+                seekBar.value = elapsedTime;
+                currentTimeEl.textContent = formatTime(elapsedTime);
+                requestAnimationFrame(updateSeekBar);
+            } else {
+                seekBar.value = playbackTime;
+                currentTimeEl.textContent = formatTime(playbackTime);
+            }
+        }
+
+        // UIイベントリスナー
+        playPauseBtn.addEventListener('click', () => {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                if (isPlaying) {
+                    const pauseTime = audioContext.currentTime - startTime;
+                    dataChannel.send(JSON.stringify({ type: 'pause', payload: { time: pauseTime } }));
+                    pausePlayback(pauseTime);
+                } else {
+                    dataChannel.send(JSON.stringify({ type: 'play', payload: { time: playbackTime } }));
+                    startPlayback(playbackTime);
+                }
+            } else {
+                log('データチャンネルがまだ開いていません。接続が確立するまでお待ちください。');
+            }
+        });
+
+        seekBar.addEventListener('change', () => {
+            const newTime = parseFloat(seekBar.value);
+            if (isPlaying) {
+                // シーク操作を同期
+                if (dataChannel && dataChannel.readyState === 'open') {
+                    dataChannel.send(JSON.stringify({ type: 'play', payload: { time: newTime } }));
+                }
+                startPlayback(newTime);
+            } else {
+                playbackTime = newTime;
+                currentTimeEl.textContent = formatTime(playbackTime);
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            shareLinkInput.select();
+            document.execCommand('copy');
+            copyBtn.textContent = 'コピーしました！';
+            setTimeout(() => {
+                copyBtn.textContent = 'コピー';
+            }, 2000);
+        });
     </script>
 </body>
 </html>
