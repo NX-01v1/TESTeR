@@ -122,7 +122,12 @@
                     </button>
                 </div>
             </div>
-            <p id="room-id-display" class="mt-4 text-center font-mono bg-gray-700 p-2 rounded-lg text-sm hidden"></p>
+            <div id="room-info" class="flex items-center mt-4 hidden">
+                <p id="room-id-display" class="font-mono bg-gray-700 p-2 rounded-l-lg text-sm flex-grow">ここにURLが表示されます</p>
+                <button id="copy-url-btn" class="button bg-slate-500 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-r-lg shadow-md">
+                    コピー
+                </button>
+            </div>
         </div>
 
         <div id="file-selection" class="card hidden">
@@ -176,6 +181,8 @@
         const joinRoomBtn = document.getElementById('join-room');
         const roomIdInput = document.getElementById('room-id-input');
         const roomIdDisplay = document.getElementById('room-id-display');
+        const roomInfo = document.getElementById('room-info');
+        const copyUrlBtn = document.getElementById('copy-url-btn');
         const playPauseBtn = document.getElementById('play-pause');
         const stopBtn = document.getElementById('stop');
         const audioFile = document.getElementById('audio-file');
@@ -409,9 +416,10 @@
             isHost = true;
             const roomId = generateRoomId();
             roomIdInput.value = roomId;
-            roomIdDisplay.textContent = `このURLを共有してください: ${window.location.origin}${window.location.pathname}?room=${roomId}`;
-            roomIdDisplay.classList.remove('hidden');
-            statusText.textContent = '部屋を作成しました。接続待機中...';
+            const roomUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+            roomIdDisplay.textContent = roomUrl;
+            roomInfo.classList.remove('hidden');
+            statusText.textContent = '部屋を作成しました。URLのハッシュをコピーして他の人と共有してください。';
             
             await createOfferAndSend(roomId);
         });
@@ -426,6 +434,27 @@
             statusText.textContent = `部屋ID '${roomId}' に接続中...`;
             
             await createAnswerAndSend(roomId);
+        });
+
+        // URLコピーボタンのイベントリスナー
+        copyUrlBtn.addEventListener('click', () => {
+            const urlToCopy = roomIdDisplay.textContent;
+            try {
+                navigator.clipboard.writeText(urlToCopy);
+                showMessage('URLがクリップボードにコピーされました！');
+            } catch (err) {
+                // Fallback for browsers that don't support navigator.clipboard
+                const el = document.createElement('textarea');
+                el.value = urlToCopy;
+                el.setAttribute('readonly', '');
+                el.style.position = 'absolute';
+                el.style.left = '-9999px';
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                showMessage('URLがクリップボードにコピーされました！');
+            }
         });
 
         playPauseBtn.addEventListener('click', () => {
