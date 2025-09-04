@@ -70,11 +70,11 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background-color: rgba(10, 10, 10, 0.9);
-            padding: 20px;
+            padding: 2vmin;
             border: 1px solid #e6b200;
             box-shadow: 0 0 15px rgba(230, 178, 0, 0.5);
             text-align: center;
-            font-size: 1.1rem;
+            font-size: 3vmin;
             font-weight: bold;
             display: none;
             z-index: 100;
@@ -84,8 +84,8 @@
         /* バーチャルジョイスティックのスタイル */
         .joystick-container {
             position: absolute;
-            width: 240px;
-            height: 240px;
+            width: 30vmin;
+            height: 30vmin;
             background-color: rgba(20, 20, 20, 0.7);
             border-radius: 50%;
             border: 2px solid #555;
@@ -97,8 +97,8 @@
         }
 
         #joystick-container-left {
-            left: 20px;
-            bottom: 20px;
+            left: 2vmin;
+            bottom: 2vmin;
         }
 
         #joystick-container-right {
@@ -106,8 +106,8 @@
         }
 
         .joystick {
-            width: 100px;
-            height: 100px;
+            width: 12vmin;
+            height: 12vmin;
             background-color: #ccc;
             border-radius: 50%;
             position: relative;
@@ -118,8 +118,8 @@
         /* 縦向き平行四辺形ボタンのスタイル */
         .parallelogram-button-group {
             position: absolute;
-            right: 20px;
-            bottom: 20px;
+            right: 2vmin;
+            bottom: 2vmin;
             display: flex;
             flex-direction: column;
             z-index: 60;
@@ -127,14 +127,14 @@
         }
 
         .parallelogram-button-group .parallelogram-button:not(:last-child) {
-            margin-bottom: 5px; /* ボタンの間にスペースを追加 */
+            margin-bottom: 1vmin; /* ボタンの間にスペースを追加 */
         }
         
         .parallelogram-button {
-            width: 100px;
-            height: 150px;
+            width: 15vmin;
+            height: 20vmin;
             color: #fff;
-            font-size: 1.0rem;
+            font-size: 2vmin;
             font-weight: bold;
             display: flex;
             justify-content: center;
@@ -164,8 +164,8 @@
         
         .action-button-group {
             position: absolute;
-            right: 20px;
-            bottom: 20px;
+            right: 2vmin;
+            bottom: 2vmin;
             display: flex;
             flex-direction: column;
             align-items: flex-end;
@@ -175,21 +175,20 @@
         .action-button-row {
             display: flex;
             flex-direction: row;
-            margin-bottom: 5px;
+            margin-bottom: 1vmin;
         }
 
         .action-button-row .parallelogram-button:not(:last-child) {
-            margin-right: 5px;
+            margin-right: 1vmin;
         }
-
 
         /* ブーストゲージのスタイル */
         #boost-gauge-container {
             position: absolute;
-            left: 20px;
-            bottom: 270px; /* ジョイスティックより上になるように調整 */
-            top: 20px; 
-            width: 40px;
+            left: 2vmin;
+            bottom: 30vmin; /* ジョイスティックより上になるように調整 */
+            top: 2vmin; 
+            width: 5vmin;
             background-color: rgba(10, 10, 10, 0.8);
             border: 1px solid #333;
             border-radius: 4px;
@@ -209,10 +208,10 @@
         /* レーダーのスタイル (六角形) */
         #radar-container {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 200px;
-            height: 200px;
+            top: 2vmin;
+            right: 2vmin;
+            width: 20vmin;
+            height: 20vmin;
             background-color: rgba(10, 10, 10, 0.8);
             border: 1px solid #4a4a4a;
             display: flex;
@@ -227,8 +226,8 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 12px;
-            height: 12px;
+            width: 1.5vmin;
+            height: 1.5vmin;
             background-color: #ccc;
             border-radius: 50%;
             transform: translate(-50%, -50%);
@@ -236,8 +235,8 @@
         
         .radar-dot {
             position: absolute;
-            width: 12px;
-            height: 12px;
+            width: 1.5vmin;
+            height: 1.5vmin;
             background-color: #e6b200;
             border-radius: 50%;
         }
@@ -249,8 +248,8 @@
         /* APカウンターのスタイル (LED風) */
         #ap-counter {
             position: absolute;
-            top: 20px;
-            left: 100px;
+            top: 2vmin;
+            left: 10vmin;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
@@ -260,7 +259,7 @@
         #ap-value {
             color: #e6b200;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 5.0rem; 
+            font-size: 8vmin; 
             letter-spacing: 0.1rem;
             border-bottom: 2px solid #e6b200;
         }
@@ -290,8 +289,8 @@
             <div class="action-button-row">
                 <button id="jump-button-para" class="parallelogram-button"><span>JUMP</span></button>
             </div>
-            <div class="action-button-row" style="margin-top: 5px;">
-                <button id="lock-on-button-para" class="parallelogram-button" style="height: 120px;"><span>LOCK ON</span></button>
+            <div class="action-button-row" style="margin-top: 1vmin;">
+                <button id="lock-on-button-para" class="parallelogram-button" style="height: 16vmin;"><span>LOCK ON</span></button>
                 <button id="quick-boost-button-para" class="parallelogram-button"><span>Q-BOOST</span></button>
             </div>
         </div>
@@ -316,7 +315,7 @@
         // Joystick state
         let leftJoystickCenter = { x: 0, y: 0 };
         let rightJoystickCenter = { x: 0, y: 0 };
-        const maxJoystickDistance = 100;
+        let quickBoostCounter = 0;
 
         // Variables for smooth cube movement
         const cubeSpeed = 0.1 * 4;
@@ -339,8 +338,6 @@
         // Cube velocity and target velocity
         const cubeVelocity = new THREE.Vector3();
         const targetVelocity = new THREE.Vector3();
-        let joystickDistance = 0;
-        let quickBoostCounter = 0; // Quick boost remaining time
 
         // Jump and gravity variables
         let cubeVerticalVelocity = 0;
@@ -371,7 +368,7 @@
         let otherCubeMaterial, lockedOnMaterial;
 
         // Radar variables
-        const radarSize = 200;
+        const radarSize = 20; // Adjusted to vmin
         const radarScale = 10;
 
         // AP counter variables
@@ -569,7 +566,7 @@
             event.preventDefault();
             
             const touches = event.changedTouches ? Array.from(event.changedTouches) : [event];
-
+            
             touches.forEach(touch => {
                 const clientX = touch.clientX;
                 const clientY = touch.clientY;
@@ -591,19 +588,16 @@
                         if (rightJoystickTouchId === null) {
                             rightJoystickTouchId = identifier;
                             
-                            const gameContainerRect = document.getElementById('game-container').getBoundingClientRect();
-                            const relativeX = clientX - gameContainerRect.left;
-                            const relativeY = clientY - gameContainerRect.top;
-                            
-                            const joystickSize = 240;
-                            rightJoystickContainer.style.left = `${relativeX - joystickSize / 2}px`;
-                            rightJoystickContainer.style.top = `${relativeY - joystickSize / 2}px`;
+                            // Position the container at the touch point and translate it back by half its size to center it
+                            rightJoystickContainer.style.left = `${clientX}px`;
+                            rightJoystickContainer.style.top = `${clientY}px`;
+                            rightJoystickContainer.style.transform = `translate(-50%, -50%)`;
                             rightJoystickContainer.style.display = 'flex';
                             isRightJoystickActive = true;
                             
-                            const rect = rightJoystickContainer.getBoundingClientRect();
-                            rightJoystickCenter.x = rect.left + rect.width / 2;
-                            rightJoystickCenter.y = rect.top + rect.height / 2;
+                            // Store the center for movement calculations
+                            rightJoystickCenter.x = clientX;
+                            rightJoystickCenter.y = clientY;
                         }
                     }
                 }
@@ -620,12 +614,13 @@
                 // Left joystick operation (movement)
                 if (identifier === leftJoystickTouchId) {
                     const rect = leftJoystickContainer.getBoundingClientRect();
-                    leftJoystickCenter.x = rect.left + rect.width / 2;
-                    leftJoystickCenter.y = rect.top + rect.height / 2;
+                    const maxJoystickDistance = rect.width / 2;
+                    leftJoystickCenter.x = rect.left + maxJoystickDistance;
+                    leftJoystickCenter.y = rect.top + maxJoystickDistance;
                     
                     let dx = touch.clientX - leftJoystickCenter.x;
                     let dy = touch.clientY - leftJoystickCenter.y;
-                    joystickDistance = Math.sqrt(dx * dx + dy * dy);
+                    const joystickDistance = Math.sqrt(dx * dx + dy * dy);
                     if (joystickDistance > maxJoystickDistance) {
                         dx = (dx / joystickDistance) * maxJoystickDistance;
                         dy = (dy / joystickDistance) * maxJoystickDistance;
@@ -638,8 +633,12 @@
 
                 // Right joystick operation (camera view change)
                 if (identifier === rightJoystickTouchId) {
+                    const rect = rightJoystickContainer.getBoundingClientRect();
+                    const maxJoystickDistance = rect.width / 2;
+                    
                     let dx = touch.clientX - rightJoystickCenter.x;
                     let dy = touch.clientY - rightJoystickCenter.y;
+                    
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     if (distance > maxJoystickDistance) {
                         dx = (dx / distance) * maxJoystickDistance;
@@ -670,7 +669,6 @@
                 if (identifier === leftJoystickTouchId) {
                     leftJoystickTouchId = null;
                     leftJoystick.style.transform = 'translate(0, 0)';
-                    joystickDistance = 0;
                     targetVelocity.set(0, 0, 0);
                     cubeVelocity.set(0, 0, 0);
                 }
@@ -739,6 +737,7 @@
             const playerRotation = cube.rotation.y;
             const cos = Math.cos(playerRotation);
             const sin = Math.sin(playerRotation);
+            const radarHalfSize = radarContainer.getBoundingClientRect().width / 2;
 
             otherCubes.forEach(otherCube => {
                 const dot = otherCube.radarDot;
@@ -756,7 +755,6 @@
                 const rotatedZ = relativePos.x * sin + relativePos.z * cos;
                 
                 // Adjust position for the square radar, with flipped X-axis
-                const radarHalfSize = radarSize / 2;
                 const dotX = -rotatedX * (radarHalfSize) / radarScale; // Invert X-axis
                 const dotY = -rotatedZ * (radarHalfSize) / radarScale; // Invert Y-axis
 
