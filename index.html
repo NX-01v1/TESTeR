@@ -3,325 +3,908 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>同期音楽プレイヤー</title>
+    <title>キューブゲーム</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
+            background-color: #000;
+            color: #d1d5db;
             font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5;
-        }
-        .container {
-            max-width: 600px;
-        }
-        input[type="range"]::-webkit-slider-runnable-track {
-            background: #cbd5e1;
-            border-radius: 9999px;
-            height: 8px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            background: #4f46e5;
-            border-radius: 50%;
-            cursor: pointer;
-            margin-top: -4px;
-        }
-        #audio-controls {
             display: flex;
+            justify-content: center;
             align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #111;
+        }
+
+        #game-canvas {
+            background-color: #0d0d0d;
+            border-radius: 4px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+            border: 2px solid #222;
+            display: block;
+        }
+        
+        /* ACLR風UIの共通スタイル */
+        .aclr-ui-panel {
+            background-color: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(2px);
+            border: 1px solid #4a4a4a;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            color: #ccc;
+            padding: 0.5rem;
+            border-radius: 2px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            position: absolute;
+            z-index: 60;
+        }
+        
+        .aclr-ui-heading {
+            color: #e6b200;
+            font-weight: bold;
+            font-size: 0.7rem;
+            letter-spacing: 0.05rem;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 0.25rem;
+        }
+
+        /* メッセージボックスのスタイル */
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(10, 10, 10, 0.9);
+            padding: 20px;
+            border: 1px solid #e6b200;
+            box-shadow: 0 0 15px rgba(230, 178, 0, 0.5);
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            display: none;
+            z-index: 100;
+            color: #e6b200;
+        }
+
+        /* バーチャルジョイスティックのスタイル */
+        .joystick-container {
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            background-color: rgba(20, 20, 20, 0.7);
+            border-radius: 50%;
+            border: 2px solid #555;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+
+        #joystick-container-left {
+            left: 20px;
+            bottom: 20px;
+        }
+
+        #joystick-container-right {
+            display: none;
+        }
+
+        .joystick {
+            width: 100px;
+            height: 100px;
+            background-color: #ccc;
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+            box-shadow: 0 0 8px rgba(204, 204, 204, 0.5);
+        }
+        
+        /* 縦向き平行四辺形ボタンのスタイル */
+        .parallelogram-button-group {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            z-index: 60;
+            touch-action: manipulation;
+        }
+
+        .parallelogram-button-group .parallelogram-button:not(:last-child) {
+            margin-bottom: 5px; /* ボタンの間にスペースを追加 */
+        }
+        
+        .parallelogram-button {
+            width: 100px;
+            height: 150px;
+            color: #fff;
+            font-size: 1.0rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(20, 20, 20, 0.7);
+            border: 1px solid #555;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out, background-color 0.2s ease-in-out;
+            transform: skewY(-20deg);
+            border-radius: 4px;
+        }
+
+        .parallelogram-button span {
+            transform: skewY(20deg);
+        }
+
+        .parallelogram-button:active {
+            transform: scale(0.95) skewY(-20deg);
+            background-color: #e6b200;
+        }
+        
+        .parallelogram-button.active {
+            background-color: #e6b200;
+            box-shadow: 0 0 10px rgba(230, 178, 0, 0.5);
+        }
+        
+        .action-button-group {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            z-index: 60;
+        }
+
+        .action-button-row {
+            display: flex;
+            flex-direction: row;
+            margin-bottom: 5px;
+        }
+
+        .action-button-row .parallelogram-button:not(:last-child) {
+            margin-right: 5px;
+        }
+
+
+        /* ブーストゲージのスタイル */
+        #boost-gauge-container {
+            position: absolute;
+            left: 20px;
+            bottom: 270px; /* ジョイスティックより上になるように調整 */
+            top: 20px; 
+            width: 40px;
+            background-color: rgba(10, 10, 10, 0.8);
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            z-index: 70;
+        }
+
+        #boost-gauge-fill {
+            width: 100%;
+            background: linear-gradient(to top, #00ff00, #99ff99);
+            transition: height 0.1s linear;
+            position: absolute;
+            bottom: 0;
+        }
+
+        /* レーダーのスタイル (六角形) */
+        #radar-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background-color: rgba(10, 10, 10, 0.8);
+            border: 1px solid #4a4a4a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        #radar-container::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            background-color: #ccc;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .radar-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: #e6b200;
+            border-radius: 50%;
+        }
+
+        .radar-dot.locked-on {
+            background-color: #ff0000;
+        }
+
+        /* APカウンターのスタイル (LED風) */
+        #ap-counter {
+            position: absolute;
+            top: 20px;
+            left: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            z-index: 60;
+        }
+        
+        #ap-value {
+            color: #e6b200;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 5.0rem; 
+            letter-spacing: 0.1rem;
+            border-bottom: 2px solid #e6b200;
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
-    <div class="container bg-white shadow-xl rounded-2xl p-8 space-y-6">
-        <h1 class="text-3xl font-bold text-gray-800 text-center mb-6">同期音楽プレイヤー</h1>
+<body class="bg-black text-gray-400 flex flex-col items-center justify-center">
 
-        <!-- Music and control section -->
-        <div class="space-y-4">
-            <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-center">
-                <p class="text-gray-600 text-lg" id="song-title">サンプル曲</p>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="message-box"></div>
+        <!-- 体力(AP)カウンター -->
+        <div id="ap-counter">
+            <div id="ap-value">5000</div>
+        </div>
+        <!-- レーダー -->
+        <div id="radar-container"></div>
+        <!-- 移動用ジョイスティック -->
+        <div id="joystick-container-left" class="joystick-container">
+            <div id="joystick-left" class="joystick"></div>
+        </div>
+        <!-- 回転・視点変更用ジョイスティック -->
+        <div id="joystick-container-right" class="joystick-container">
+            <div id="joystick-right" class="joystick"></div>
+        </div>
+        <!-- ボタン群 -->
+        <div class="action-button-group">
+            <div class="action-button-row">
+                <button id="jump-button-para" class="parallelogram-button"><span>JUMP</span></button>
             </div>
-            <div id="audio-controls" class="space-x-4">
-                <button id="play-pause-btn" class="flex-shrink-0 bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
-                    <svg id="play-icon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
-                    <svg id="pause-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                </button>
-                <div class="w-full flex items-center space-x-2">
-                    <span id="current-time" class="text-sm text-gray-500">0:00</span>
-                    <input type="range" id="seek-bar" class="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer" value="0">
-                    <span id="duration" class="text-sm text-gray-500">0:00</span>
-                </div>
+            <div class="action-button-row" style="margin-top: 5px;">
+                <button id="lock-on-button-para" class="parallelogram-button" style="height: 120px;"><span>LOCK ON</span></button>
+                <button id="quick-boost-button-para" class="parallelogram-button"><span>Q-BOOST</span></button>
             </div>
         </div>
-
-        <div class="mt-8 space-y-4">
-            <!-- Share link section -->
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">共有リンク</label>
-                <div class="flex space-x-2">
-                    <input type="text" id="share-link-input" class="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly>
-                    <button id="copy-btn" class="bg-indigo-600 text-white p-3 rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200">コピー</button>
-                </div>
-            </div>
-            
-            <!-- Connection status and logs -->
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">接続状態</label>
-                <p id="connection-status" class="text-sm text-gray-600">待機中...</p>
-            </div>
-            <div>
-                <label class="block text-gray-700 font-semibold mb-2">ログ</label>
-                <textarea id="log-area" class="w-full h-32 p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 resize-none" readonly></textarea>
-            </div>
+        <!-- ブーストゲージ -->
+        <div id="boost-gauge-container">
+            <div id="boost-gauge-fill"></div>
         </div>
     </div>
-    <script>
-        // DOM要素
-        const playPauseBtn = document.getElementById('play-pause-btn');
-        const playIcon = document.getElementById('play-icon');
-        const pauseIcon = document.getElementById('pause-icon');
-        const seekBar = document.getElementById('seek-bar');
-        const currentTimeEl = document.getElementById('current-time');
-        const durationEl = document.getElementById('duration');
-        const shareLinkInput = document.getElementById('share-link-input');
-        const copyBtn = document.getElementById('copy-btn');
-        const connectionStatusEl = document.getElementById('connection-status');
-        const logArea = document.getElementById('log-area');
 
-        // Web Audio API
-        let audioContext;
-        let audioSource;
-        let audioBuffer;
-        let startTime = 0;
-        let playbackTime = 0;
-        let isPlaying = false;
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
-        // WebRTC
-        let peerConnection;
-        let dataChannel;
+        // Set up the scene, camera, and renderer
+        let scene, camera, renderer;
+        let cube, plane;
+        let leftJoystickContainer, leftJoystick, rightJoystickContainer, rightJoystick, jumpButton, lockOnButton, quickBoostButton;
+        let messageBox;
+        let boostGaugeContainer, boostGaugeFill;
+        let radarContainer;
+        let apValue;
+        
+        // Joystick state
+        let leftJoystickCenter = { x: 0, y: 0 };
+        let rightJoystickCenter = { x: 0, y: 0 };
+        const maxJoystickDistance = 100;
 
-        // 定数
-        const STUN_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
-        const localMusicFile = '/__static__/sample.mp3'; // デモ用のサンプル曲
+        // Variables for smooth cube movement
+        const cubeSpeed = 0.1 * 4;
+        const cubeSmoothness = 0.05;
+        // Increase speed multiplier and decrease duration
+        const quickBoostDuration = 15 / 4;
+        const quickBoostMultiplier = 5 * 1.25; 
+        const quickBoostCost = 20;
 
-        // UIユーティリティ関数
-        function log(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            logArea.value += `[${timestamp}] ${message}\n`;
-            logArea.scrollTop = logArea.scrollHeight;
-        }
+        // Variables for smooth camera following
+        const cameraOffset = new THREE.Vector3(0, 5, -8);
+        const cameraLerpFactor = 0.1;
 
-        function formatTime(seconds) {
-            const minutes = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-        }
+        // Variables for camera rotation and vertical movement
+        const cameraControlSpeed = 0.1;
+        let cameraVerticalOffset = 5;
+        let cameraVerticalVelocity = 0;
+        const cameraVerticalDamping = 0.95;
 
-        // 初期化処理
-        window.onload = async () => {
-            log('ページをロードしました。');
-            try {
-                // サンプル曲のロード
-                const response = await fetch(localMusicFile);
-                const arrayBuffer = await response.arrayBuffer();
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                log('音楽ファイルを読み込みました。');
-                durationEl.textContent = formatTime(audioBuffer.duration);
-                seekBar.max = audioBuffer.duration;
-            } catch (error) {
-                log('音楽ファイルのロードに失敗しました: ' + error.message);
-            }
+        // Cube velocity and target velocity
+        const cubeVelocity = new THREE.Vector3();
+        const targetVelocity = new THREE.Vector3();
+        let joystickDistance = 0;
+        let quickBoostCounter = 0; // Quick boost remaining time
 
-            // URLからSDP情報を取得
-            const params = new URLSearchParams(window.location.search);
-            const offerSDP = params.get('offer');
+        // Jump and gravity variables
+        let cubeVerticalVelocity = 0;
+        const jumpForce = 0.2; 
+        const gravity = -0.02;
+        let isJumpButtonPressed = false;
+        let isJumping = false;
 
-            if (offerSDP) {
-                log('URLからオファーSDPを検出しました。セッションに参加します...');
-                // オファーSDPが存在する場合、セッションに参加
-                await createPeerConnection();
-                const remoteDescription = new RTCSessionDescription({
-                    type: 'offer',
-                    sdp: decodeURIComponent(offerSDP)
+        // Boost gauge variables
+        const maxBoost = 100;
+        let currentBoost = maxBoost;
+        const boostDecreaseRate = 0.8;
+        const boostRegenRate = 1.0;
+
+        // Camera rotation velocity
+        let cameraRotationVelocity = 0;
+        const cameraRotationDamping = 0.9;
+        let isRightJoystickActive = false;
+
+        // Lock-on feature state
+        let isLockedOn = false;
+        let lockedOnTarget = null;
+        
+        // Array for other cubes and materials
+        let otherCubes = [];
+        const numCubes = 1;
+        const otherCubeSpeed = 0.01;
+        let otherCubeMaterial, lockedOnMaterial;
+
+        // Radar variables
+        const radarSize = 200;
+        const radarScale = 10;
+
+        // AP counter variables
+        let currentAP = 5000;
+        const maxAP = 5000;
+        const apRegenRate = 1;
+
+        // Touch ID tracking for multi-touch
+        let leftJoystickTouchId = null;
+        let rightJoystickTouchId = null;
+
+        // Initialize the game
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0a);
+
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // Create renderer
+            const canvas = document.getElementById('game-canvas');
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Create player cube
+            const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const cubeMaterial = new THREE.MeshLambertMaterial({ color: 0x63b3ed });
+            cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            cube.position.y = 0.5;
+            scene.add(cube);
+
+            // Create ground plane
+            const planeGeometry = new THREE.PlaneGeometry(20, 20);
+            const planeMaterial = new THREE.MeshLambertMaterial({ color: 0x4b5563, side: THREE.DoubleSide });
+            plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.rotation.x = -Math.PI / 2;
+            scene.add(plane);
+
+            // Create light sources
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7.5);
+            scene.add(directionalLight);
+            
+            // Define materials for other cubes and lock-on target
+            otherCubeMaterial = new THREE.MeshLambertMaterial({ color: 0xef4444 });
+            lockedOnMaterial = new THREE.MeshLambertMaterial({ color: 0xe6b200 });
+
+            // Create other cubes
+            for (let i = 0; i < numCubes; i++) {
+                const otherCube = new THREE.Mesh(cubeGeometry, otherCubeMaterial);
+                otherCube.position.x = (Math.random() - 0.5) * 18;
+                otherCube.position.z = (Math.random() - 0.5) * 18;
+                otherCube.position.y = 0.5;
+                scene.add(otherCube);
+                otherCubes.push({
+                    mesh: otherCube,
+                    direction: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(),
+                    turnCounter: Math.random() * 100,
+                    radarDot: null
                 });
-                await peerConnection.setRemoteDescription(remoteDescription);
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-
-                const answerSDP = encodeURIComponent(peerConnection.localDescription.sdp);
-                const newUrl = `${window.location.origin}${window.location.pathname}?answer=${answerSDP}`;
-                shareLinkInput.value = newUrl;
-                connectionStatusEl.textContent = '接続中...';
-            } else {
-                // オファーSDPが存在しない場合、セッションを作成
-                log('新しいセッションを作成します。');
-                await createPeerConnection();
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-
-                const offerSDP = encodeURIComponent(peerConnection.localDescription.sdp);
-                const shareUrl = `${window.location.origin}${window.location.pathname}?offer=${offerSDP}`;
-                shareLinkInput.value = shareUrl;
-                connectionStatusEl.textContent = 'セッション作成済み。リンクを共有してください。';
             }
 
-            // アンサーSDPがURLに追加された場合の処理
-            window.addEventListener('popstate', () => {
-                const updatedParams = new URLSearchParams(window.location.search);
-                const answerSDP = updatedParams.get('answer');
-                if (answerSDP && peerConnection.remoteDescription?.type !== 'answer') {
-                    handleAnswer(decodeURIComponent(answerSDP));
-                }
+            // Get HTML elements
+            leftJoystickContainer = document.getElementById('joystick-container-left');
+            leftJoystick = document.getElementById('joystick-left');
+            rightJoystickContainer = document.getElementById('joystick-container-right');
+            rightJoystick = document.getElementById('joystick-right');
+            jumpButton = document.getElementById('jump-button-para');
+            lockOnButton = document.getElementById('lock-on-button-para');
+            quickBoostButton = document.getElementById('quick-boost-button-para');
+            messageBox = document.getElementById('message-box');
+            boostGaugeContainer = document.getElementById('boost-gauge-container');
+            boostGaugeFill = document.getElementById('boost-gauge-fill');
+            radarContainer = document.getElementById('radar-container');
+            apValue = document.getElementById('ap-value');
+
+            // Create radar dots
+            otherCubes.forEach(otherCube => {
+                const dot = document.createElement('div');
+                dot.classList.add('radar-dot');
+                radarContainer.appendChild(dot);
+                otherCube.radarDot = dot;
             });
-        };
 
-        // WebRTCピア接続の作成
-        async function createPeerConnection() {
-            peerConnection = new RTCPeerConnection({ iceServers: STUN_SERVERS });
-            log('WebRTC PeerConnectionを作成しました。');
+            // Display initial AP
+            updateAPCounter();
 
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    log('ICE候補を生成しました。');
-                    // ICE候補は共有する必要があるが、このデモではURLにSDPを埋め込むシンプルな方法のため、
-                    // candidate情報はSDPに含まれるものと仮定する
-                }
-            };
-
-            peerConnection.onconnectionstatechange = () => {
-                log(`接続状態: ${peerConnection.connectionState}`);
-                if (peerConnection.connectionState === 'connected') {
-                    connectionStatusEl.textContent = '接続済み';
-                    log('P2P接続が確立しました。');
-                }
-            };
-
-            peerConnection.ondatachannel = (event) => {
-                dataChannel = event.channel;
-                setupDataChannelListeners();
-                log('DataChannelを受信しました。');
-            };
-
-            // オファーを作成する側がDataChannelを作成
-            const params = new URLSearchParams(window.location.search);
-            if (!params.get('offer')) {
-                dataChannel = peerConnection.createDataChannel('sync-channel');
-                setupDataChannelListeners();
-                log('DataChannelを作成しました。');
-            }
+            setupEventListeners();
+            onWindowResize(); // Adjust UI size on initial load
+            animate();
         }
 
-        // DataChannelリスナーの設定
-        function setupDataChannelListeners() {
-            dataChannel.onopen = () => log('DataChannelが開きました。');
-            dataChannel.onclose = () => log('DataChannelが閉じました。');
-            dataChannel.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                log(`メッセージを受信: ${JSON.stringify(message)}`);
-                if (message.type === 'play') {
-                    const { time } = message.payload;
-                    startPlayback(time);
-                } else if (message.type === 'pause') {
-                    const { time } = message.payload;
-                    pausePlayback(time);
-                }
-            };
-        }
+        // Set up event listeners
+        function setupEventListeners() {
+            window.addEventListener('resize', onWindowResize, false);
+            
+            // Handle touch and mouse events with a single function
+            const gameContainer = document.getElementById('game-container');
+            gameContainer.addEventListener('touchstart', onStart, false);
+            gameContainer.addEventListener('touchmove', onMove, false);
+            gameContainer.addEventListener('touchend', onEnd, false);
+            
+            gameContainer.addEventListener('mousedown', onStart, false);
+            gameContainer.addEventListener('mousemove', onMove, false);
+            gameContainer.addEventListener('mouseup', onEnd, false);
 
-        // アンサーSDPの処理
-        async function handleAnswer(answerSDP) {
-            log('アンサーSDPを受信しました。');
-            const remoteDescription = new RTCSessionDescription({
-                type: 'answer',
-                sdp: answerSDP
+            // Button event listeners
+            jumpButton.addEventListener('mousedown', onJump);
+            jumpButton.addEventListener('touchstart', onJump);
+            jumpButton.addEventListener('mouseup', onJumpRelease);
+            jumpButton.addEventListener('touchend', onJumpRelease);
+
+            lockOnButton.addEventListener('click', toggleLockOn);
+            lockOnButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                toggleLockOn();
             });
-            await peerConnection.setRemoteDescription(remoteDescription);
-            log('リモートSDPを設定しました。');
-        }
 
-        // 音楽再生の開始
-        function startPlayback(seekTime = 0) {
-            if (isPlaying) {
-                audioSource.stop();
-                audioSource.disconnect();
-            }
-            audioSource = audioContext.createBufferSource();
-            audioSource.buffer = audioBuffer;
-            audioSource.connect(audioContext.destination);
-            audioSource.start(0, seekTime);
-            startTime = audioContext.currentTime - seekTime;
-            isPlaying = true;
-            playIcon.classList.add('hidden');
-            pauseIcon.classList.remove('hidden');
-            updateSeekBar();
+            quickBoostButton.addEventListener('click', triggerQuickBoost);
+            quickBoostButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                triggerQuickBoost();
+            });
         }
-
-        // 音楽再生の一時停止
-        function pausePlayback(seekTime) {
-            if (isPlaying) {
-                audioSource.stop();
-                audioSource.disconnect();
-                playbackTime = seekTime;
-                isPlaying = false;
-                playIcon.classList.remove('hidden');
-                pauseIcon.classList.add('hidden');
-            }
-        }
-
-        // 再生時間の更新
-        function updateSeekBar() {
-            if (isPlaying) {
-                const elapsedTime = audioContext.currentTime - startTime;
-                seekBar.value = elapsedTime;
-                currentTimeEl.textContent = formatTime(elapsedTime);
-                requestAnimationFrame(updateSeekBar);
+        
+        // Trigger quick boost
+        function triggerQuickBoost() {
+            if (currentBoost >= quickBoostCost) {
+                currentBoost -= quickBoostCost;
+                quickBoostCounter = quickBoostDuration; // Set counter
+                showMessage("QUICK BOOST!");
             } else {
-                seekBar.value = playbackTime;
-                currentTimeEl.textContent = formatTime(playbackTime);
+                showMessage("BOOST GAUGE EMPTY.");
             }
         }
 
-        // UIイベントリスナー
-        playPauseBtn.addEventListener('click', () => {
-            if (dataChannel && dataChannel.readyState === 'open') {
-                if (isPlaying) {
-                    const pauseTime = audioContext.currentTime - startTime;
-                    dataChannel.send(JSON.stringify({ type: 'pause', payload: { time: pauseTime } }));
-                    pausePlayback(pauseTime);
+        // Toggle lock-on function
+        function toggleLockOn() {
+            // If currently locked on, unlock
+            if (isLockedOn) {
+                isLockedOn = false;
+                if (lockedOnTarget) {
+                    lockedOnTarget.material = otherCubeMaterial;
+                    const targetData = otherCubes.find(c => c.mesh === lockedOnTarget);
+                    if (targetData) {
+                        targetData.radarDot.classList.remove('locked-on');
+                    }
+                }
+                lockedOnTarget = null;
+                lockOnButton.classList.remove('active');
+                showMessage("LOCK OFF.");
+            } else {
+                // If not locked on, find and lock on to a target
+                lockedOnTarget = findTargetOnScreenCenter();
+                
+                // Only activate if a target is found
+                if (lockedOnTarget) {
+                    isLockedOn = true;
+                    lockedOnTarget.material = lockedOnMaterial;
+                    lockOnButton.classList.add('active');
+                    const targetData = otherCubes.find(c => c.mesh === lockedOnTarget);
+                    if (targetData) {
+                        targetData.radarDot.classList.add('locked-on');
+                    }
+                    showMessage("LOCK ON!");
                 } else {
-                    dataChannel.send(JSON.stringify({ type: 'play', payload: { time: playbackTime } }));
-                    startPlayback(playbackTime);
+                    isLockedOn = false;
+                    showMessage("TARGET NOT FOUND.");
+                }
+            }
+        }
+
+        // Handle jump
+        function onJump(e) {
+            e.preventDefault();
+            // Allow jump only when on the ground
+            if (cube.position.y <= 0.5) {
+                cubeVerticalVelocity = jumpForce;
+                isJumping = true;
+            }
+            isJumpButtonPressed = true;
+        }
+
+        // Handle jump button release
+        function onJumpRelease(e) {
+            e.preventDefault();
+            isJumpButtonPressed = false;
+        }
+
+        // Start of touch/mouse event
+        function onStart(event) {
+            event.preventDefault();
+            
+            const touches = event.changedTouches ? Array.from(event.changedTouches) : [event];
+
+            touches.forEach(touch => {
+                const clientX = touch.clientX;
+                const clientY = touch.clientY;
+                const identifier = touch.identifier !== undefined ? touch.identifier : (event.type === 'mousedown' ? 0 : null);
+
+                // If touch starts on the left half of the screen
+                if (clientX < window.innerWidth / 2) {
+                    if (leftJoystickTouchId === null) {
+                        leftJoystickTouchId = identifier;
+                    }
+                } else { // If touch starts on the right half of the screen
+                    // Exclude buttons
+                    const buttonGroup = document.querySelector('.action-button-group');
+                    const buttonRect = buttonGroup.getBoundingClientRect();
+                    
+                    const isOverButtons = clientX > buttonRect.left && clientY > buttonRect.top && clientX < buttonRect.right && clientY < buttonRect.bottom;
+                    
+                    if (!isOverButtons) {
+                        if (rightJoystickTouchId === null) {
+                            rightJoystickTouchId = identifier;
+                            
+                            const gameContainerRect = document.getElementById('game-container').getBoundingClientRect();
+                            const relativeX = clientX - gameContainerRect.left;
+                            const relativeY = clientY - gameContainerRect.top;
+                            
+                            const joystickSize = 240;
+                            rightJoystickContainer.style.left = `${relativeX - joystickSize / 2}px`;
+                            rightJoystickContainer.style.top = `${relativeY - joystickSize / 2}px`;
+                            rightJoystickContainer.style.display = 'flex';
+                            isRightJoystickActive = true;
+                            
+                            const rect = rightJoystickContainer.getBoundingClientRect();
+                            rightJoystickCenter.x = rect.left + rect.width / 2;
+                            rightJoystickCenter.y = rect.top + rect.height / 2;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Move event (handles both joysticks)
+        function onMove(event) {
+            const touches = event.touches ? Array.from(event.touches) : [event];
+
+            touches.forEach(touch => {
+                const identifier = touch.identifier !== undefined ? touch.identifier : (event.type === 'mousemove' ? 0 : null);
+                
+                // Left joystick operation (movement)
+                if (identifier === leftJoystickTouchId) {
+                    const rect = leftJoystickContainer.getBoundingClientRect();
+                    leftJoystickCenter.x = rect.left + rect.width / 2;
+                    leftJoystickCenter.y = rect.top + rect.height / 2;
+                    
+                    let dx = touch.clientX - leftJoystickCenter.x;
+                    let dy = touch.clientY - leftJoystickCenter.y;
+                    joystickDistance = Math.sqrt(dx * dx + dy * dy);
+                    if (joystickDistance > maxJoystickDistance) {
+                        dx = (dx / joystickDistance) * maxJoystickDistance;
+                        dy = (dy / joystickDistance) * maxJoystickDistance;
+                    }
+                    leftJoystick.style.transform = `translate(${dx}px, ${dy}px)`;
+                    // Reverse movement direction
+                    targetVelocity.x = (-dx / maxJoystickDistance) * cubeSpeed;
+                    targetVelocity.z = (-dy / maxJoystickDistance) * cubeSpeed;
+                }
+
+                // Right joystick operation (camera view change)
+                if (identifier === rightJoystickTouchId) {
+                    let dx = touch.clientX - rightJoystickCenter.x;
+                    let dy = touch.clientY - rightJoystickCenter.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance > maxJoystickDistance) {
+                        dx = (dx / distance) * maxJoystickDistance;
+                        dy = (dy / distance) * maxJoystickDistance;
+                    }
+
+                    // Move joystick stick
+                    rightJoystick.style.transform = `translate(${dx}px, ${dy}px)`;
+                    
+                    // Adjust view change speed
+                    const rotationDelta = dx / maxJoystickDistance;
+                    cameraRotationVelocity = -(rotationDelta * cubeSpeed * 0.75 / 4);
+
+                    // Calculate vertical speed
+                    const verticalDelta = dy / maxJoystickDistance;
+                    cameraVerticalVelocity = (verticalDelta * cubeSpeed * 2 * 2);
+                }
+            });
+        }
+
+        // End of event
+        function onEnd(event) {
+            const changedTouches = event.changedTouches ? Array.from(event.changedTouches) : [event];
+            
+            changedTouches.forEach(touch => {
+                const identifier = touch.identifier !== undefined ? touch.identifier : (event.type === 'mouseup' ? 0 : null);
+
+                if (identifier === leftJoystickTouchId) {
+                    leftJoystickTouchId = null;
+                    leftJoystick.style.transform = 'translate(0, 0)';
+                    joystickDistance = 0;
+                    targetVelocity.set(0, 0, 0);
+                    cubeVelocity.set(0, 0, 0);
+                }
+                
+                if (identifier === rightJoystickTouchId) {
+                    rightJoystickTouchId = null;
+                    rightJoystick.style.transform = 'translate(0, 0)';
+                    rightJoystickContainer.style.display = 'none';
+                    cameraRotationVelocity = 0;
+                    cameraVerticalVelocity = 0;
+                    isRightJoystickActive = false;
+                }
+            });
+        }
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Find the cube closest to the center of the screen
+        function findTargetOnScreenCenter() {
+            let closestCube = null;
+            let minDistance = Infinity;
+
+            // Return null if no target cubes exist
+            if (otherCubes.length === 0) {
+                return null;
+            }
+
+            // Consider only cubes within the camera's view frustum
+            const frustum = new THREE.Frustum();
+            const matrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+            frustum.setFromProjectionMatrix(matrix);
+
+            otherCubes.forEach(otherCube => {
+                // Ignore cubes not in the camera's view frustum
+                if (!frustum.intersectsObject(otherCube.mesh)) {
+                    return;
+                }
+
+                // Project 3D position to 2D screen coordinates
+                const projectedPosition = otherCube.mesh.position.clone().project(camera);
+                // Calculate distance from the center of the screen
+                const distance = projectedPosition.distanceTo(new THREE.Vector3(0, 0, 0));
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestCube = otherCube.mesh;
+                }
+            });
+
+            return closestCube;
+        }
+
+        // Update boost gauge display
+        function updateBoostGauge() {
+            const heightPercentage = (currentBoost / maxBoost) * 100;
+            boostGaugeFill.style.height = `${heightPercentage}%`;
+        }
+
+        // Update radar dots
+        function updateRadar() {
+            const playerRotation = cube.rotation.y;
+            const cos = Math.cos(playerRotation);
+            const sin = Math.sin(playerRotation);
+
+            otherCubes.forEach(otherCube => {
+                const dot = otherCube.radarDot;
+                const relativePos = otherCube.mesh.position.clone().sub(cube.position);
+                const distance = relativePos.length();
+                
+                if (distance > radarScale) {
+                    dot.style.display = 'none';
+                    return;
+                }
+                dot.style.display = 'block';
+
+                // Rotate relative coordinates based on player's direction
+                const rotatedX = relativePos.x * cos - relativePos.z * sin;
+                const rotatedZ = relativePos.x * sin + relativePos.z * cos;
+                
+                // Adjust position for the square radar, with flipped X-axis
+                const radarHalfSize = radarSize / 2;
+                const dotX = -rotatedX * (radarHalfSize) / radarScale; // Invert X-axis
+                const dotY = -rotatedZ * (radarHalfSize) / radarScale; // Invert Y-axis
+
+                // Clamp dot position to stay within the square radar boundaries
+                const clampedX = Math.min(Math.max(dotX, -radarHalfSize), radarHalfSize);
+                const clampedY = Math.min(Math.max(dotY, -radarHalfSize), radarHalfSize);
+
+                dot.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+            });
+        }
+        
+        // Update AP counter display
+        function updateAPCounter() {
+            apValue.textContent = `${Math.floor(currentAP)}`;
+        }
+
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let currentSpeed = cubeSpeed;
+            if (quickBoostCounter > 0) {
+                currentSpeed = cubeSpeed * quickBoostMultiplier;
+                quickBoostCounter--;
+            }
+
+            // Calculate movement speed from joystick input, even if locked on
+            if (targetVelocity.length() > 0) {
+                const rotationMatrix = new THREE.Matrix4().makeRotationY(cube.rotation.y);
+                const rotatedVelocity = targetVelocity.clone().applyMatrix4(rotationMatrix);
+                cubeVelocity.lerp(rotatedVelocity, cubeSmoothness);
+            } else {
+                cubeVelocity.lerp(new THREE.Vector3(0, 0, 0), cubeSmoothness);
+            }
+            
+            // Update player cube position (apply boost to velocity)
+            cube.position.add(cubeVelocity.clone().multiplyScalar(currentSpeed / cubeSpeed));
+
+            // If in the air and jump button is pressed and boost remains, ascend
+            if (isJumpButtonPressed && isJumping && currentBoost > 0) {
+                currentBoost = Math.max(0, currentBoost - boostDecreaseRate);
+                cubeVerticalVelocity = jumpForce;
+            } else {
+                cubeVerticalVelocity += gravity;
+            }
+
+            cube.position.y += cubeVerticalVelocity;
+
+            // Ground collision detection
+            if (cube.position.y <= 0.5) {
+                cube.position.y = 0.5;
+                cubeVerticalVelocity = 0;
+                isJumping = false;
+                currentBoost = Math.min(maxBoost, currentBoost + boostRegenRate);
+            }
+
+            // Update boost gauge display
+            updateBoostGauge();
+            // Update radar
+            updateRadar();
+            // Regenerate AP
+            currentAP = Math.min(maxAP, currentAP + apRegenRate);
+            updateAPCounter();
+
+
+            // Update cube orientation and camera tracking
+            let lookAtTarget;
+
+            if (isLockedOn) {
+                // Re-evaluate target every frame while locked on
+                lockedOnTarget = findTargetOnScreenCenter();
+
+                if (lockedOnTarget) {
+                    // Turn player cube towards the target while locked on
+                    const direction = new THREE.Vector3().subVectors(lockedOnTarget.position, cube.position);
+                    const targetAngle = Math.atan2(direction.x, direction.z);
+                    cube.rotation.y = targetAngle;
+                    
+                    // Camera follows player cube movement
+                    const rotatedOffset = cameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), cube.rotation.y);
+                    const targetPosition = cube.position.clone().add(rotatedOffset);
+                    camera.position.copy(targetPosition);
+
+                    // Set camera to look at the target cube
+                    lookAtTarget = lockedOnTarget.position.clone();
+                } else {
+                    // If target is lost, unlock
+                    isLockedOn = false;
+                    lockOnButton.classList.remove('active');
+                    showMessage("TARGET NOT FOUND.");
                 }
             } else {
-                log('データチャンネルがまだ開いていません。接続が確立するまでお待ちください。');
-            }
-        });
-
-        seekBar.addEventListener('change', () => {
-            const newTime = parseFloat(seekBar.value);
-            if (isPlaying) {
-                // シーク操作を同期
-                if (dataChannel && dataChannel.readyState === 'open') {
-                    dataChannel.send(JSON.stringify({ type: 'play', payload: { time: newTime } }));
+                // If not locked on, adjust cube orientation and camera tracking with joystick input
+                if (isRightJoystickActive) {
+                    cube.rotation.y += cameraRotationVelocity;
+                    cameraRotationVelocity *= cameraRotationDamping;
+                    cameraVerticalOffset += cameraVerticalVelocity;
+                    cameraVerticalVelocity *= cameraVerticalDamping;
                 }
-                startPlayback(newTime);
-            } else {
-                playbackTime = newTime;
-                currentTimeEl.textContent = formatTime(playbackTime);
+                
+                // Update camera tracking
+                const currentCameraOffset = new THREE.Vector3(cameraOffset.x, cameraVerticalOffset, cameraOffset.z);
+                const rotatedCameraOffset = currentCameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), cube.rotation.y);
+                const targetPosition = cube.position.clone().add(rotatedCameraOffset);
+                camera.position.copy(targetPosition);
+                
+                // Set camera to look at the player cube
+                lookAtTarget = cube.position.clone();
             }
-        });
+            
+            // Limit vertical camera offset
+            cameraVerticalOffset = Math.min(Math.max(cameraVerticalOffset, 0.5), 15);
+            
+            // Update what the camera is looking at
+            camera.lookAt(lookAtTarget);
 
-        copyBtn.addEventListener('click', () => {
-            shareLinkInput.select();
-            document.execCommand('copy');
-            copyBtn.textContent = 'コピーしました！';
+            // Update other cube movements
+            otherCubes.forEach(otherCube => {
+                otherCube.mesh.position.add(otherCube.direction.clone().multiplyScalar(otherCubeSpeed));
+
+                // Change direction when reaching boundaries
+                if (Math.abs(otherCube.mesh.position.x) > 9 || Math.abs(otherCube.mesh.position.z) > 9) {
+                    otherCube.direction.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+                }
+
+                // Randomly change direction
+                otherCube.turnCounter--;
+                if (otherCube.turnCounter <= 0) {
+                    otherCube.direction.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+                    otherCube.turnCounter = Math.random() * 200 + 50;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // Function to display a message
+        function showMessage(msg) {
+            messageBox.textContent = msg;
+            messageBox.style.display = 'block';
             setTimeout(() => {
-                copyBtn.textContent = 'コピー';
-            }, 2000);
-        });
+                messageBox.style.display = 'none';
+            }, 3000);
+        }
+
+        // Start the game when the page loads
+        window.onload = init;
     </script>
 </body>
 </html>
